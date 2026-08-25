@@ -4,17 +4,16 @@ AgriN — Multi-Temporal Sentinel-2 NDVI Time Series Module
 Extracts multi-temporal NDVI trajectories from Sentinel-2 Surface Reflectance
 observations over a configured AOI.
 
-Scientific constraints:
-- Uses server-side Earth Engine reduction (no large raster downloads).
-- Computes per-observation NDVI statistics (min, mean, max, stdDev) over AOI.
-- Filters by AOI, Date range, and CLOUDY_PIXEL_PERCENTAGE.
-- Does not fabricate missing observations.
-- Does not infer crop phenology or crop type from NDVI alone.
+Supports two tiers of time-series representations:
+1. Raw Observation Level: Every valid Sentinel-2 granule processed (preserves full provenance).
+2. Canonical Agricultural Daily Level: Exactly one observation per calendar date, deterministically
+   selecting the latest processing generation granule when same-date passes occur.
 """
 
 from __future__ import annotations
 
 import logging
+from collections import defaultdict
 from datetime import date, datetime
 from typing import Any, Optional
 
@@ -38,19 +37,10 @@ def extract_ndvi_timeseries(
     max_observations: int = 50,
 ) -> NDVITimeSeries:
     """
-    Extract a real multi-temporal NDVI time series from Earth Engine.
-
-    Args:
-        aoi: ee.Geometry representing the area of interest.
-        start_date: Start of observation window (YYYY-MM-DD or date).
-        end_date: End of observation window (YYYY-MM-DD or date).
-        max_cloud_percentage: Filter for scene cloud cover (e.g. 20.0%).
-        aoi_name: Descriptive name of the AOI.
-        scale: Spatial resolution in meters for reduction (default 10m).
-        max_observations: Safety limit on total images to process.
+    Extract raw multi-temporal Sentinel-2 NDVI observations from Earth Engine.
 
     Returns:
-        NDVITimeSeries: Validated Pydantic container with chronological points.
+        NDVITimeSeries: Validated Pydantic container with raw chronological observations.
     """
     ee = get_ee_module()
     if not ee:
@@ -87,7 +77,6 @@ def extract_ndvi_timeseries(
 
     # Map reduction across the image collection server-side
     def _compute_stats_per_image(img):
-        # Calculate NDVI band: (B8 - B4) / (B8 + B4)
         with_ndvi = calculate_ndvi(img)
         ndvi_band = with_ndvi.select("NDVI")
 
@@ -105,12 +94,12 @@ def extract_ndvi_timeseries(
             maxPixels=1e8,
         )
 
-        # Set calculated properties on the feature
         return ee.Feature(
             None,
             {
                 "image_id": img.get("system:id"),
                 "timestamp": img.get("system:time_start"),
+                "generation_time": img.get("GENERATION_TIME"),
                 "cloud_percentage": img.get("CLOUDY_PIXEL_PERCENTAGE"),
                 "NDVI_min": stats.get("NDVI_min"),
                 "NDVI_mean": stats.get("NDVI_mean"),
@@ -119,11 +108,9 @@ def extract_ndvi_timeseries(
             },
         )
 
-    # Convert image collection to feature collection with NDVI properties
     limited_collection = collection.limit(max_observations)
     stats_fc = limited_collection.map(_compute_stats_per_image)
 
-    # Fetch structured properties
     features_info = stats_fc.getInfo().get("features", [])
 
     points: list[NDVITimeSeriesPoint] = []
@@ -138,11 +125,9 @@ def extract_ndvi_timeseries(
         min_v = props.get("NDVI_min")
         max_v = props.get("NDVI_max")
 
-        # Skip observations where reduction yielded no valid unmasked pixels
         if mean_v is None or min_v is None or max_v is None:
             continue
 
-        # Enforce physical bounding [-1.0, +1.0]
         point = NDVITimeSeriesPoint(
             observation_date=obs_date,
             image_id=str(props.get("image_id", "Unknown")),
@@ -163,6 +148,58 @@ def extract_ndvi_timeseries(
         observations_count=len(points),
         points=points,
         data_source=DataSource.LIVE,
+    )
+
+
+def deduplicate_to_canonical(timeseries: NDVITimeSeries) -> NDVITimeSeries:
+    """
+    Produce a canonical agricultural time series with exactly ONE observation per calendar date.
+
+    Deterministic Rule:
+    For any calendar date with multiple valid Sentinel-2 granules (e.g. reprocessing passes),
+    select the granule with the latest generation/processing timestamp (parsed from image ID or
+    deterministic ID order).
+
+    Validation:
+    Strictly asserts that no duplicate calendar dates exist in the output.
+    """
+    if not timeseries.points:
+        return timeseries
+
+    # Group points by observation_date
+    grouped: dict[date, list[NDVITimeSeriesPoint]] = defaultdict(list)
+    for p in timeseries.points:
+        grouped[p.observation_date].append(p)
+
+    canonical_points: list[NDVITimeSeriesPoint] = []
+
+    # Sort calendar dates chronologically
+    for obs_date in sorted(grouped.keys()):
+        candidates = grouped[obs_date]
+        if len(candidates) == 1:
+            canonical_points.append(candidates[0])
+        else:
+            # Deterministic selection: choose granule with highest/latest processing timestamp
+            # Copernicus S2 ID format: ..._<SensingTime>_<GenerationTime>_<TileID>
+            selected = max(candidates, key=lambda p: p.image_id)
+            logger.info(
+                f"[DEDUPLICATE] Date {obs_date} has {len(candidates)} granules. "
+                f"Selected latest generation granule: {selected.image_id}"
+            )
+            canonical_points.append(selected)
+
+    # Validation: Ensure 100% unique calendar dates
+    dates_list = [p.observation_date for p in canonical_points]
+    assert len(dates_list) == len(set(dates_list)), "Canonical time series contains duplicate calendar dates!"
+
+    return NDVITimeSeries(
+        aoi_name=timeseries.aoi_name,
+        start_date=timeseries.start_date,
+        end_date=timeseries.end_date,
+        cloud_threshold=timeseries.cloud_threshold,
+        observations_count=len(canonical_points),
+        points=canonical_points,
+        data_source=timeseries.data_source,
     )
 
 
