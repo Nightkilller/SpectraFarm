@@ -88,33 +88,35 @@ Canonical Sentinel-2 Optical (NDVI)        Canonical Sentinel-1 SAR (VV, VH, VV/
        └─────────────────────────────────────────────────────────┘
 ```
 
-### 5.1 Observation Type Semantics:
-1. **`FUSED_PAIR` (9 records)**:
-   - Contains concurrent, validated observations from both sensors within a $\le 5$-day window (mean lag: $1.0\text{ day}$).
-   - Suitable for joint optical-canopy and radar-structure feature modeling.
-2. **`SAR_STANDALONE` (5 records)**:
-   - Represents all-weather radar passes during the monsoon optical blackout (June 21 – August 15).
-   - Optical fields remain strictly `NULL`/`None`. They are **NOT** optical+SAR fused measurements and must not be treated as containing optical data.
-
-### 5.2 Scientific Constraints:
-- **Unvalidated Feature Vector**: This fused dataset represents an **unvalidated multi-sensor feature set**.
-- **No Crop Classification Claims**: Fused features will NOT be used to claim crop identification until real ground truth is integrated in Phase 5 and trained in Phase 6.
-- **No Moisture Stress Claims**: Fused features will NOT be used to claim water stress until validated in Phase 7.
-
 ---
 
-## 6. Multi-Sensor Temporal Coverage Comparison (Sehore AOI)
+## 6. Ground Truth Validation & Ingestion Infrastructure (Phase 5)
 
-| Sensor / Product | Collection | Date Window | Total Observations | Breakdown | Key Role |
-|---|---|---|---|---|---|
-| **Sentinel-2 (Optical)** | `COPERNICUS/S2_SR_HARMONIZED` | Feb 27 – Aug 26, 2026 | 22 daily passes | 9 paired in window | Canopy chlorophyll & greenness |
-| **Sentinel-1 (SAR)** | `COPERNICUS/S1_GRD` | Feb 27 – Aug 26, 2026 | 14 daily passes | 9 paired / 5 monsoon standalone | Surface roughness & all-weather continuity |
-| **Fused Feature Set** | Multi-Sensor Pipeline | Feb 27 – Aug 26, 2026 | **14 matrix rows** | **9 FUSED_PAIR / 5 SAR_STANDALONE** | Unified feature foundation for downstream ML |
+AgriN enforces a strict ground-truth ingestion gate to ensure that machine learning models (Phase 6) are trained exclusively on validated, non-fabricated reference data.
 
----
+```
+Authoritative Field Survey / Extension Data (CSV)
+                      │
+                      ▼
+       ┌──────────────────────────────────────────────┐
+       │     Ground Truth Validator (Phase 5)         │
+       ├──────────────────────────────────────────────┤
+       │ 1. Schema & Null Completeness Check          │
+       │ 2. Spatial Bounding Box Filter               │
+       │ 3. Spatial Duplicate Detection (<15m delta)  │
+       │ 4. Class & Season Distribution Audit         │
+       │ 5. Spatial Block ID Assignment (Grid Binning)│
+       └──────────────────────────────────────────────┘
+                      │
+                      ▼
+         Google Cloud Target Architecture
+  ┌─────────────────────────────────────────────────┐
+  │ Cloud Storage: gs://agrin-ground-truth-506618/ │
+  │ BigQuery:      agrin_db.ground_truth_labels     │
+  └─────────────────────────────────────────────────┘
+```
 
-## 7. Ground Truth & Model Validation Strategy (Roadmap)
-
-- **Phase 5 (Ground Truth)**: Verifiable agricultural coordinates and crop labels (`field_id, lat, lon, crop_type, season`).
-- **Phase 6 (Crop Classification)**: Supervised ML (Random Forest) trained on the fused optical + SAR feature matrix using spatial k-fold cross-validation.
-- **Phase 7 (Moisture Stress)**: Calibrated moisture-stress modeling evaluated against reference soil moisture datasets.
+### 6.1 Scientific Principles:
+1. **Zero Data Fabrication**: No synthetic coordinates, randomly generated crop labels, or artificial field boundaries.
+2. **Spatial Autocorrelation Protection**: Every field point is assigned a `spatial_block_id` to enforce spatial k-fold cross-validation, ensuring that training and test fields are spatially segregated.
+3. **Current Status**: **`WAITING_FOR_DATA`**. Validation infrastructure is operational; waiting for genuine external survey records.
