@@ -10,6 +10,7 @@ from src.data.schemas import (
     FusedObservationPair,
     NDVITimeSeries,
     NDVITimeSeriesPoint,
+    ObservationType,
     SARTimeSeries,
     SARTimeSeriesPoint,
     TemporalFeatureVector,
@@ -103,6 +104,7 @@ class TestMultiSensorFusion:
         # Pair 1 on 2026-03-05 should align with 2026-03-06 (lag: 1 day)
         p1 = fused.pairs[0]
         assert p1.target_date == date(2026, 3, 5)
+        assert p1.observation_type == ObservationType.FUSED_PAIR
         assert p1.optical_date == date(2026, 3, 6)
         assert p1.temporal_delta_days == 1
         assert p1.ndvi == 0.32
@@ -111,6 +113,7 @@ class TestMultiSensorFusion:
         # Pair 2 on 2026-03-17 should align with 2026-03-16 (lag: 1 day)
         p2 = fused.pairs[1]
         assert p2.target_date == date(2026, 3, 17)
+        assert p2.observation_type == ObservationType.FUSED_PAIR
         assert p2.optical_date == date(2026, 3, 16)
         assert p2.temporal_delta_days == 1
         assert p2.ndvi == 0.26
@@ -160,10 +163,51 @@ class TestMultiSensorFusion:
 
         fused = fuse_optical_sar_timeseries(opt_ts, sar_ts, max_temporal_delta_days=5)
         assert fused.aligned_pairs_count == 1
-        # Optical date should be None for July observation outside the 5-day delta
-        assert fused.pairs[0].optical_date is None
-        assert fused.pairs[0].ndvi is None
-        assert fused.pairs[0].vv_db == -8.6
+        p = fused.pairs[0]
+        assert p.observation_type == ObservationType.SAR_STANDALONE
+        assert p.optical_date is None
+        assert p.ndvi is None
+        assert p.vv_db == -8.6
+
+    def test_observation_type_semantics(self):
+        # Valid FUSED_PAIR
+        fused_p = FusedObservationPair(
+            pair_id="PAIR_01",
+            target_date=date(2026, 3, 5),
+            observation_type=ObservationType.FUSED_PAIR,
+            optical_date=date(2026, 3, 6),
+            ndvi=0.32,
+            cloud_percentage=0.0,
+            sar_date=date(2026, 3, 5),
+            sar_image_id="s1",
+            vv_db=-10.4,
+            vh_db=-17.8,
+            vv_vh_ratio_linear=10.3,
+            temporal_delta_days=1,
+        )
+        assert fused_p.observation_type == ObservationType.FUSED_PAIR
+        assert fused_p.ndvi is not None
+        assert fused_p.optical_date is not None
+        assert fused_p.sar_date is not None
+
+        # Valid SAR_STANDALONE
+        standalone_p = FusedObservationPair(
+            pair_id="PAIR_02",
+            target_date=date(2026, 7, 10),
+            observation_type=ObservationType.SAR_STANDALONE,
+            optical_date=None,
+            ndvi=None,
+            cloud_percentage=None,
+            sar_date=date(2026, 7, 10),
+            sar_image_id="s2",
+            vv_db=-8.6,
+            vh_db=-16.8,
+            vv_vh_ratio_linear=10.9,
+            temporal_delta_days=31,
+        )
+        assert standalone_p.observation_type == ObservationType.SAR_STANDALONE
+        assert standalone_p.optical_date is None
+        assert standalone_p.ndvi is None
 
     def test_compute_temporal_feature_vector(self):
         opt_ts = NDVITimeSeries(
@@ -239,6 +283,7 @@ class TestMultiSensorFusion:
         pair = FusedObservationPair(
             pair_id="PAIR_01",
             target_date=date(2026, 3, 5),
+            observation_type=ObservationType.FUSED_PAIR,
             optical_date=date(2026, 3, 6),
             ndvi=0.32,
             cloud_percentage=0.0,
@@ -271,6 +316,8 @@ class TestMultiSensorFusion:
 
         df_pairs = fused_dataset_to_dataframe(fused)
         assert len(df_pairs) == 1
+        assert "observation_type" in df_pairs.columns
+        assert df_pairs.iloc[0]["observation_type"] == "FUSED_PAIR"
         assert "optical_ndvi" in df_pairs.columns
         assert "sar_vv_db" in df_pairs.columns
 

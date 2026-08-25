@@ -25,6 +25,7 @@ from src.data.schemas import (
     FusedFeatureDataset,
     FusedObservationPair,
     NDVITimeSeries,
+    ObservationType,
     SARTimeSeries,
     TemporalFeatureVector,
 )
@@ -44,6 +45,7 @@ def fuse_optical_sar_timeseries(
     - Iterates through all unique acquisition dates in both time series.
     - For each SAR pass (all-weather anchor), identifies the closest optical pass within max_temporal_delta_days.
     - Captures temporal lag (temporal_delta_days) to quantify cross-sensor synchronization.
+    - Explicitly tags each row as FUSED_PAIR (both sensors valid) or SAR_STANDALONE (optical cloud gap).
     - Calculates joint aggregate statistical vector across the full observation window.
 
     Args:
@@ -80,6 +82,7 @@ def fuse_optical_sar_timeseries(
             pair = FusedObservationPair(
                 pair_id=pair_id,
                 target_date=sar_d,
+                observation_type=ObservationType.FUSED_PAIR,
                 optical_date=best_opt.observation_date,
                 optical_image_id=best_opt.image_id,
                 ndvi=best_opt.mean_ndvi,
@@ -98,6 +101,7 @@ def fuse_optical_sar_timeseries(
             pair = FusedObservationPair(
                 pair_id=pair_id,
                 target_date=sar_d,
+                observation_type=ObservationType.SAR_STANDALONE,
                 optical_date=None,
                 optical_image_id=None,
                 ndvi=None,
@@ -216,10 +220,12 @@ def fused_dataset_to_dataframe(fused_dataset: FusedFeatureDataset) -> pd.DataFra
     """Convert fused observation pairs to a pandas DataFrame."""
     records = []
     for p in fused_dataset.pairs:
+        obs_type = p.observation_type.value if hasattr(p.observation_type, "value") else str(p.observation_type)
         records.append(
             {
                 "pair_id": p.pair_id,
                 "target_date": p.target_date,
+                "observation_type": obs_type,
                 "optical_date": p.optical_date,
                 "optical_ndvi": p.ndvi,
                 "optical_cloud_pct": p.cloud_percentage,

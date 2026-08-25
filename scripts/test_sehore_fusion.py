@@ -105,29 +105,34 @@ def run_sehore_fusion_pipeline() -> bool:
 
     # Step 7: Display Fused Observation Table
     df_fused = fused_dataset_to_dataframe(fused_dataset)
-    print("-" * 95)
-    print(f"{'Target Date':<12} | {'Optical Date':<12} | {'NDVI':<7} | {'SAR Date':<12} | {'VV (dB)':<8} | {'VH (dB)':<8} | {'VV/VH (lin)':<11} | {'Lag (days)':<10}")
-    print("-" * 95)
+    fused_count = len(df_fused[df_fused["observation_type"] == "FUSED_PAIR"])
+    standalone_count = len(df_fused[df_fused["observation_type"] == "SAR_STANDALONE"])
+
+    print("-" * 115)
+    print(f"{'Target Date':<12} | {'Type':<15} | {'Optical Date':<12} | {'NDVI':<7} | {'SAR Date':<12} | {'VV (dB)':<8} | {'VH (dB)':<8} | {'VV/VH (lin)':<11} | {'Lag (days)':<10}")
+    print("-" * 115)
     for _, row in df_fused.iterrows():
         opt_d = str(row['optical_date']) if pd.notna(row['optical_date']) else "CLOUD GAP"
         ndvi_str = f"{row['optical_ndvi']:>7.4f}" if pd.notna(row['optical_ndvi']) else "   N/A "
-        print(f"{str(row['target_date']):<12} | {opt_d:<12} | {ndvi_str} | {str(row['sar_date']):<12} | {row['sar_vv_db']:>8.2f} | {row['sar_vh_db']:>8.2f} | {row['sar_vv_vh_ratio']:>11.2f} | {row['temporal_delta_days']:>10}")
-    print("-" * 95)
+        print(f"{str(row['target_date']):<12} | {row['observation_type']:<15} | {opt_d:<12} | {ndvi_str} | {str(row['sar_date']):<12} | {row['sar_vv_db']:>8.2f} | {row['sar_vh_db']:>8.2f} | {row['sar_vv_vh_ratio']:>11.2f} | {row['temporal_delta_days']:>10}")
+    print("-" * 115)
     print()
 
     # Step 8: Display Summary Vector
     summary = fused_dataset.temporal_summary
-    print("=" * 95)
+    print("=" * 115)
     print("PHASE 4 TEMPORAL SUMMARY FEATURE VECTOR")
-    print("=" * 95)
+    print("=" * 115)
     print(f"  Target Pilot AOI:             {summary.aoi_name} (Sehore, MP)")
     print(f"  Date Range:                   {summary.start_date} to {summary.end_date}")
+    print(f"  Total Fused Matrix Rows:      {len(df_fused)}")
+    print(f"  FUSED_PAIR Rows:              {fused_count} (Optical + SAR within <= 5 days)")
+    print(f"  SAR_STANDALONE Rows:          {standalone_count} (SAR only during optical cloud gap)")
     print(f"  Optical Observations:         {summary.optical_obs_count} passes (NDVI Mean: {summary.ndvi_mean:.4f}, Range: {summary.ndvi_min:.4f} to {summary.ndvi_max:.4f}, Trend Slope: {summary.ndvi_slope:.6f})")
     print(f"  SAR Observations:             {summary.sar_obs_count} passes (VV Mean: {summary.vv_mean_db:.2f} dB, VH Mean: {summary.vh_mean_db:.2f} dB, VV/VH Ratio: {summary.vv_vh_ratio_mean:.2f})")
-    print(f"  Temporally Aligned Pairs:     {summary.aligned_pairs_count} multi-sensor pairs")
     print(f"  Data Origin:                  LIVE DERIVED FROM SATELLITE (100% Earth Engine Compute)")
     print(f"  Scientific Status:            {summary.status}")
-    print("=" * 95)
+    print("=" * 115)
     print()
 
     # Step 9: Export Datasets

@@ -48,6 +48,12 @@ class DataSource(str, Enum):
     DEMO = "demo"
 
 
+class ObservationType(str, Enum):
+    """Semantic classification of a multi-sensor observation record."""
+    FUSED_PAIR = "FUSED_PAIR"
+    SAR_STANDALONE = "SAR_STANDALONE"
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Farm / Field
 # ═══════════════════════════════════════════════════════════════════════════
@@ -188,6 +194,10 @@ class FusedObservationPair(BaseModel):
     """A temporally aligned pair of optical (Sentinel-2) and SAR (Sentinel-1) observations."""
     pair_id: str
     target_date: date
+    observation_type: ObservationType = Field(
+        ...,
+        description="FUSED_PAIR (both optical and SAR valid within window) or SAR_STANDALONE (SAR only during optical gap)",
+    )
     optical_date: Optional[date] = None
     optical_image_id: Optional[str] = None
     ndvi: Optional[float] = Field(None, ge=-1.0, le=1.0)

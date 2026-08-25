@@ -75,21 +75,26 @@ Canonical Sentinel-2 Optical (NDVI)        Canonical Sentinel-1 SAR (VV, VH, VV/
                                     │
                                     ▼
        ┌─────────────────────────────────────────────────────────┐
-       │ 1. Multi-Sensor Fused Observation Matrix (fused_features)│
-       │    - Pre-monsoon: Synchronized optical + radar pairs   │
-       │    - Monsoon: All-weather SAR continuity (optical gaps) │
+       │ Multi-Sensor Fused Observation Matrix (fused_features)  │
        │                                                         │
-       │ 2. Temporal Aggregated Feature Vector (temporal_summary)│
-       │    - Optical: mean, min, max, std, range, slope         │
-       │    - SAR: VV mean/min/max/std, VH mean/min/max/std,     │
-       │           VV/VH ratio mean, VV-VH difference mean       │
+       │ 1. observation_type = "FUSED_PAIR" (9 Pairs)            │
+       │    - Both optical NDVI and SAR backscatter valid        │
+       │    - Synchronization lag ≤ 3 calendar days              │
+       │                                                         │
+       │ 2. observation_type = "SAR_STANDALONE" (5 Passes)       │
+       │    - SAR radar observation only during monsoon clouds   │
+       │    - optical_date = None, optical_ndvi = None           │
+       │    - Explicitly NOT a fused optical+SAR measurement     │
        └─────────────────────────────────────────────────────────┘
 ```
 
-### 5.1 Alignment Strategy & Zero Data Fabrication:
-1. **Anchor-Based Alignment**: For each radar observation pass, the closest optical observation within $\le 5$ calendar days is paired.
-2. **Explicit Gap Representation**: During monsoon months where optical imagery is obscured by clouds, the SAR observation is preserved with `optical_date = None` and `ndvi = None`. No fake or interpolated NDVI values are inserted.
-3. **Temporal Synchronization Metric**: Every observation pair records `temporal_delta_days` ($|t_{\text{opt}} - t_{\text{sar}}|$) to explicitly quantify temporal lag.
+### 5.1 Observation Type Semantics:
+1. **`FUSED_PAIR` (9 records)**:
+   - Contains concurrent, validated observations from both sensors within a $\le 5$-day window (mean lag: $1.0\text{ day}$).
+   - Suitable for joint optical-canopy and radar-structure feature modeling.
+2. **`SAR_STANDALONE` (5 records)**:
+   - Represents all-weather radar passes during the monsoon optical blackout (June 21 – August 15).
+   - Optical fields remain strictly `NULL`/`None`. They are **NOT** optical+SAR fused measurements and must not be treated as containing optical data.
 
 ### 5.2 Scientific Constraints:
 - **Unvalidated Feature Vector**: This fused dataset represents an **unvalidated multi-sensor feature set**.
@@ -100,11 +105,11 @@ Canonical Sentinel-2 Optical (NDVI)        Canonical Sentinel-1 SAR (VV, VH, VV/
 
 ## 6. Multi-Sensor Temporal Coverage Comparison (Sehore AOI)
 
-| Sensor / Product | Collection | Date Window | Total Observations | Aligned Pairs ($\le 5$ days) | Key Role |
+| Sensor / Product | Collection | Date Window | Total Observations | Breakdown | Key Role |
 |---|---|---|---|---|---|
-| **Sentinel-2 (Optical)** | `COPERNICUS/S2_SR_HARMONIZED` | Feb 27 – Aug 26, 2026 | 22 daily passes | 9 pairs | Direct canopy chlorophyll & photosynthetic density |
-| **Sentinel-1 (SAR)** | `COPERNICUS/S1_GRD` | Feb 27 – Aug 26, 2026 | 14 daily passes | 9 pairs (+5 monsoon standalone) | Surface roughness, volume scattering & all-weather continuity |
-| **Fused Feature Set** | Multi-Sensor Pipeline | Feb 27 – Aug 26, 2026 | **14 fused records** | **9 joint / 5 SAR monsoon** | Unified feature foundation for downstream ML |
+| **Sentinel-2 (Optical)** | `COPERNICUS/S2_SR_HARMONIZED` | Feb 27 – Aug 26, 2026 | 22 daily passes | 9 paired in window | Canopy chlorophyll & greenness |
+| **Sentinel-1 (SAR)** | `COPERNICUS/S1_GRD` | Feb 27 – Aug 26, 2026 | 14 daily passes | 9 paired / 5 monsoon standalone | Surface roughness & all-weather continuity |
+| **Fused Feature Set** | Multi-Sensor Pipeline | Feb 27 – Aug 26, 2026 | **14 matrix rows** | **9 FUSED_PAIR / 5 SAR_STANDALONE** | Unified feature foundation for downstream ML |
 
 ---
 
