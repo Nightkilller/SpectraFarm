@@ -144,6 +144,43 @@ class NDVITimeSeries(BaseModel):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Multi-Temporal Sentinel-1 SAR Time Series (Phase 3)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class SARTimeSeriesPoint(BaseModel):
+    """A single temporal observation point in a Sentinel-1 SAR time series."""
+    observation_date: date
+    image_id: str
+    orbit_pass: str = Field(..., description="e.g. 'DESCENDING', 'ASCENDING'")
+    relative_orbit: Optional[int] = None
+    instrument_mode: str = "IW"
+    min_vv: float = Field(..., description="Minimum VV backscatter in dB")
+    mean_vv: float = Field(..., description="Mean VV backscatter in dB")
+    max_vv: float = Field(..., description="Maximum VV backscatter in dB")
+    stdDev_vv: Optional[float] = None
+    min_vh: float = Field(..., description="Minimum VH backscatter in dB")
+    mean_vh: float = Field(..., description="Mean VH backscatter in dB")
+    max_vh: float = Field(..., description="Maximum VH backscatter in dB")
+    stdDev_vh: Optional[float] = None
+    mean_vv_vh_ratio: float = Field(..., description="Linear power ratio 10^((VV-VH)/10)")
+    mean_vh_vv_ratio: Optional[float] = Field(None, description="Cross-polarization ratio 10^((VH-VV)/10)")
+    mean_vv_minus_vh_db: Optional[float] = Field(None, description="Backscatter difference VV - VH in dB")
+    data_source: DataSource = DataSource.LIVE
+
+
+class SARTimeSeries(BaseModel):
+    """Collection of multi-temporal Sentinel-1 SAR observations for an AOI."""
+    aoi_name: str
+    start_date: date
+    end_date: date
+    orbit_pass: str = "DESCENDING"
+    instrument_mode: str = "IW"
+    observations_count: int = Field(..., ge=0)
+    points: list[SARTimeSeriesPoint] = Field(default_factory=list)
+    data_source: DataSource = DataSource.LIVE
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Crop Prediction
 # ═══════════════════════════════════════════════════════════════════════════
 

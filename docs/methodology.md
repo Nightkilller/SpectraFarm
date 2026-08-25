@@ -1,16 +1,27 @@
 # AgriN — Scientific Methodology
 
-## 1. Remote Sensing Data Source
+## 1. Remote Sensing Data Sources
 
-AgriN utilizes **Copernicus Sentinel-2 Surface Reflectance (Level-2A Harmonized)** imagery:
-- **Earth Engine Collection**: `COPERNICUS/S2_SR_HARMONIZED`
-- **Spatial Resolution**: 10 meters (B2, B3, B4, B8) / 20 meters (B11, B12)
-- **Temporal Resolution**: ~5-day revisit cycle with the constellation (Sentinel-2A, 2B, 2C)
-- **Atmospheric Correction**: Level-2A surface reflectance provides bottom-of-atmosphere (BOA) measurements, minimizing atmospheric aerosol and water vapor distortion.
+AgriN integrates dual-sensor Earth observation data from the European Space Agency (ESA) Copernicus constellation via Google Earth Engine:
+
+### 1.1 Sentinel-2 Optical (Surface Reflectance)
+- **Collection**: `COPERNICUS/S2_SR_HARMONIZED`
+- **Spatial Resolution**: 10 meters (B2, B3, B4, B8)
+- **Revisit Cycle**: ~5 days
+- **Product Level**: Level-2A Bottom-of-Atmosphere (BOA) surface reflectance.
+
+### 1.2 Sentinel-1 SAR (Synthetic Aperture Radar)
+- **Collection**: `COPERNICUS/S1_GRD`
+- **Instrument**: C-band Synthetic Aperture Radar ($\sim 5.405\text{ GHz}$, wavelength $\lambda \approx 5.55\text{ cm}$)
+- **Product Type**: Ground Range Detected (GRD), High Resolution (GRDH)
+- **Acquisition Mode**: Interferometric Wide Swath (`IW`)
+- **Polarizations**: Dual-polarization (`VV` and `VH`)
+- **Radiometric Calibration**: Calibrated $\sigma^0$ (sigma naught) backscatter in decibels (dB).
+- **All-Weather Capability**: Active microwave signals penetrate cloud cover, haze, and rain, enabling unhindered monitoring during the Indian monsoon season (June–August) when optical sensors are blinded.
 
 ---
 
-## 2. Pilot Region & Test AOI
+## 2. Pilot Region & Area of Interest (AOI)
 
 - **Location**: Sehore District, Madhya Pradesh, India
 - **Coordinates**: Latitude 23.2000°N, Longitude 77.0800°E
@@ -19,9 +30,9 @@ AgriN utilizes **Copernicus Sentinel-2 Surface Reflectance (Level-2A Harmonized)
 
 ---
 
-## 3. Spectral Index Formulation: NDVI
+## 3. Optical Index Formulation: NDVI (Phase 1 & 2)
 
-The Normalized Difference Vegetation Index (NDVI) assesses photosynthetic capacity and live green vegetation density:
+The Normalized Difference Vegetation Index (NDVI) assesses photosynthetic capacity and live green canopy density:
 
 $$\text{NDVI} = \frac{\text{NIR} - \text{Red}}{\text{NIR} + \text{Red}} = \frac{\text{B8} - \text{B4}}{\text{B8} + \text{B4}}$$
 
@@ -33,61 +44,61 @@ $$\text{NDVI} = \frac{\text{NIR} - \text{Red}}{\text{NIR} + \text{Red}} = \frac{
 
 ---
 
-## 4. Multi-Temporal NDVI Time Series Methodology (Phase 2)
+## 4. Synthetic Aperture Radar (SAR) Backscatter Methodology (Phase 3)
 
-AgriN maintains a dual-tier time-series architecture:
+Sentinel-1 backscatter values measure radar microwave interaction with surface geometry, canopy roughness, and soil dielectric properties:
+
+### 4.1 Polarizations & Physical Interactions
+- **VV (Vertical-transmit, Vertical-receive)**: Sensitive to surface roughness, soil dielectric permittivity, and vertical plant structural elements.
+- **VH (Vertical-transmit, Horizontal-receive)**: Sensitive to volume scattering within the vegetative crop canopy (depolarization caused by multiple scattering among leaves and stems).
+
+### 4.2 SAR Backscatter Ratios
+1. **Backscatter Difference (dB domain)**:
+   $$\text{VV} - \text{VH} \quad (\text{in dB})$$
+2. **Linear Power Ratio**:
+   $$\left(\frac{\text{VV}}{\text{VH}}\right)_{\text{linear}} = 10^{\frac{\text{VV} - \text{VH}}{10}}$$
+3. **Cross-Polarization Ratio**:
+   $$\left(\frac{\text{VH}}{\text{VV}}\right)_{\text{linear}} = 10^{\frac{\text{VH} - \text{VV}}{10}}$$
+
+### 4.3 Scientific Attribution & Constraints:
+- **No Direct Moisture Claim**: SAR backscatter and cross-ratios are treated as **unvalidated SAR backscatter features / radar-derived indicators**. They are NOT claimed to directly measure soil moisture or crop water stress without local in-situ sensor calibration and surface roughness decoupling.
+- **Server-Side Reduction**: All reductions (`mean`, `min`, `max`, `stdDev`) are computed over the AOI server-side in Google Earth Engine at 10m spatial resolution.
+
+---
+
+## 5. Dual-Tier Time-Series Architecture & Granule Deduplication
+
+Both Sentinel-2 (optical) and Sentinel-1 (SAR) pipelines maintain a standardized dual-tier output:
 
 ```
-COPERNICUS/S2_SR_HARMONIZED (Sehore AOI, 180-Day Window, <20% Cloud)
+Google Earth Engine Catalog
         ↓
-Server-Side Reduction across Earth Engine Clusters
+Server-Side AOI Reduction
         ↓
-1. Raw Granule Observation Series (23 Observations)
-   - Preserves complete instrument and ingestion provenance.
-   - Retains all ESA processing runs and baseline granules.
+1. Raw Observation Series
+   - Preserves complete instrument, orbit, and reprocessing provenance.
+   - Sentinel-2: 23 observations | Sentinel-1: 14 observations
         ↓
-2. Canonical Daily Agricultural Series (22 Observations)
+2. Canonical Daily Agricultural Series
    - Exactly ONE observation per unique calendar date.
-   - Deterministic Granule Selection Rule: For dates with multiple valid granules 
-     (e.g., 2026-03-11), select the granule with the latest ESA generation/processing timestamp.
-   - Validated: 0 duplicate calendar dates.
+   - Deterministic Selection Rule: When multiple valid granules exist for the same calendar date,
+     the granule with the latest generation/processing timestamp is deterministically selected.
+   - Validated: 0 duplicate calendar dates in canonical output.
 ```
 
-### Why One Observation Per Calendar Date is Used for Agricultural Analytics:
-1. **Model Temporal Uniformity**: Downstream agricultural models (feature extraction, temporal interpolation, cross-sensor fusion with SAR) require a single distinct state per calendar day.
-2. **Preventing Artificial Step-Variance**: Retaining multiple granules for the exact same satellite pass on the same day can introduce artificial sub-pixel registration noise into gradient and slope calculations.
-3. **Provenance Preservation**: The raw granule dataset is preserved side-by-side in [`data/processed/sehore/ndvi_timeseries_raw.csv`](file:///Users/adityagupta/Desktop/EPIC%20project/agriN/data/processed/sehore/ndvi_timeseries_raw.csv) so auditability is never lost.
+---
 
-### Scientific Rigor & Principles:
-1. **Server-Side Reduction**: Statistics are computed across Earth Engine clusters via `reduceRegion`, avoiding client-side raster downloads.
-2. **No Data Fabrication**: Only real, unmasked observations from valid satellite passes are retained.
-3. **Strict Attribution**:
-   - NDVI trajectory reflects canopy greenness dynamics over the Sehore AOI.
-   - Crop type is **NOT** inferred from optical NDVI alone.
-   - Phenological stages are **NOT** claimed without validated crop-calendar ground models.
-   - Trajectory decline is **NOT** classified as "stress" without calibrated moisture models.
+## 6. Multi-Sensor Temporal Coverage Comparison (Sehore AOI)
+
+| Sensor | Collection | Date Window | Usable Observations | Cloud Impact | Key Strength |
+|---|---|---|---|---|---|
+| **Sentinel-2** | `COPERNICUS/S2_SR_HARMONIZED` | Feb 27 – Aug 26, 2026 | 22 unique dates | Excluded June 10 – Aug 26 due to $\ge 39\%$ monsoon clouds | 10m direct chlorophyll / greenness assessment |
+| **Sentinel-1** | `COPERNICUS/S1_GRD` | Feb 27 – Aug 26, 2026 | 14 unique dates | **0% impact** (100% all-weather cloud penetration) | Continuous canopy structure & dielectric tracking across monsoon |
 
 ---
 
-## 5. Cloud Filtering Methodology & Limitations
+## 7. Ground Truth & Model Validation Strategy (Roadmap)
 
-Filtering uses the scene-level metadata property `CLOUDY_PIXEL_PERCENTAGE < 20%`.
-
-### Current Limitations:
-1. **Scene-Level Filter**: Filters entire satellite tiles, but localized sub-pixel cirrus clouds or shadows over the AOI can still introduce noise.
-2. **Monsoon Gap**: In central India during June–August, persistent high cloud cover ($\ge 39\%$) excludes optical passes. Multi-sensor radar fusion (Sentinel-1 SAR) in Phase 3 will provide all-weather observation continuity.
-
----
-
-## 6. Ground Truth & Validation Strategy (Roadmap)
-
-To validate crop classification and stress detection in subsequent phases:
-- **No Fabricated Labels**: Agricultural labels will not be randomly populated or artificially synthesized.
-- **Label Acquisition**: Ground-truth datasets will be structured as:
-  ```csv
-  field_id,lat,lon,crop_type,season
-  F001,23.201,77.082,Wheat,Rabi
-  F002,23.195,77.078,Wheat,Rabi
-  F003,23.210,77.085,Other,Rabi
-  ```
-- **Evaluation**: Training and validation splits will use spatial k-fold cross-validation to prevent spatial autocorrelation leakage.
+In subsequent phases:
+- **No Fabricated Labels**: Field survey coordinates and crop type annotations will be acquired from verifiable sources.
+- **Validation**: Spatial k-fold cross-validation will be used for Phase 6 (Crop Classification) and Phase 7 (Moisture Stress) to prevent spatial autocorrelation leakage.
