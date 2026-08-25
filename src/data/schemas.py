@@ -181,6 +181,70 @@ class SARTimeSeries(BaseModel):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Optical + SAR Multi-Sensor Fusion (Phase 4)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class FusedObservationPair(BaseModel):
+    """A temporally aligned pair of optical (Sentinel-2) and SAR (Sentinel-1) observations."""
+    pair_id: str
+    target_date: date
+    optical_date: Optional[date] = None
+    optical_image_id: Optional[str] = None
+    ndvi: Optional[float] = Field(None, ge=-1.0, le=1.0)
+    cloud_percentage: Optional[float] = None
+    sar_date: Optional[date] = None
+    sar_image_id: Optional[str] = None
+    vv_db: Optional[float] = None
+    vh_db: Optional[float] = None
+    vv_vh_ratio_linear: Optional[float] = None
+    vv_minus_vh_db: Optional[float] = None
+    temporal_delta_days: int = Field(..., description="Days between optical and SAR acquisitions")
+    data_source: DataSource = DataSource.LIVE
+
+
+class TemporalFeatureVector(BaseModel):
+    """Aggregated temporal statistical feature vector for an AOI across the full window."""
+    aoi_name: str
+    start_date: date
+    end_date: date
+    # Optical metrics
+    optical_obs_count: int
+    ndvi_mean: Optional[float] = None
+    ndvi_min: Optional[float] = None
+    ndvi_max: Optional[float] = None
+    ndvi_std: Optional[float] = None
+    ndvi_range: Optional[float] = None
+    ndvi_slope: Optional[float] = None
+    # SAR metrics
+    sar_obs_count: int
+    vv_mean_db: Optional[float] = None
+    vv_min_db: Optional[float] = None
+    vv_max_db: Optional[float] = None
+    vv_std_db: Optional[float] = None
+    vh_mean_db: Optional[float] = None
+    vh_min_db: Optional[float] = None
+    vh_max_db: Optional[float] = None
+    vh_std_db: Optional[float] = None
+    vv_vh_ratio_mean: Optional[float] = None
+    vv_minus_vh_mean_db: Optional[float] = None
+    # Fusion metadata
+    aligned_pairs_count: int
+    data_source: DataSource = DataSource.LIVE
+    status: str = "UNVALIDATED MULTI-SENSOR FEATURE VECTOR"
+
+
+class FusedFeatureDataset(BaseModel):
+    """Complete multi-sensor fused dataset container for an AOI."""
+    aoi_name: str
+    start_date: date
+    end_date: date
+    aligned_pairs_count: int
+    pairs: list[FusedObservationPair] = Field(default_factory=list)
+    temporal_summary: TemporalFeatureVector
+    data_source: DataSource = DataSource.LIVE
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Crop Prediction
 # ═══════════════════════════════════════════════════════════════════════════
 

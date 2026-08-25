@@ -17,7 +17,7 @@ AgriN integrates dual-sensor Earth observation data from the European Space Agen
 - **Acquisition Mode**: Interferometric Wide Swath (`IW`)
 - **Polarizations**: Dual-polarization (`VV` and `VH`)
 - **Radiometric Calibration**: Calibrated $\sigma^0$ (sigma naught) backscatter in decibels (dB).
-- **All-Weather Capability**: Active microwave signals penetrate cloud cover, haze, and rain, enabling unhindered monitoring during the Indian monsoon season (June–August) when optical sensors are blinded.
+- **All-Weather Capability**: Active microwave signals penetrate cloud cover and haze, enabling continuous monitoring during the Indian monsoon season (June–August) when optical sensors are blinded.
 
 ---
 
@@ -46,8 +46,6 @@ $$\text{NDVI} = \frac{\text{NIR} - \text{Red}}{\text{NIR} + \text{Red}} = \frac{
 
 ## 4. Synthetic Aperture Radar (SAR) Backscatter Methodology (Phase 3)
 
-Sentinel-1 backscatter values measure radar microwave interaction with surface geometry, canopy roughness, and soil dielectric properties:
-
 ### 4.1 Polarizations & Physical Interactions
 - **VV (Vertical-transmit, Vertical-receive)**: Sensitive to surface roughness, soil dielectric permittivity, and vertical plant structural elements.
 - **VH (Vertical-transmit, Horizontal-receive)**: Sensitive to volume scattering within the vegetative crop canopy (depolarization caused by multiple scattering among leaves and stems).
@@ -60,45 +58,58 @@ Sentinel-1 backscatter values measure radar microwave interaction with surface g
 3. **Cross-Polarization Ratio**:
    $$\left(\frac{\text{VH}}{\text{VV}}\right)_{\text{linear}} = 10^{\frac{\text{VH} - \text{VV}}{10}}$$
 
-### 4.3 Scientific Attribution & Constraints:
-- **No Direct Moisture Claim**: SAR backscatter and cross-ratios are treated as **unvalidated SAR backscatter features / radar-derived indicators**. They are NOT claimed to directly measure soil moisture or crop water stress without local in-situ sensor calibration and surface roughness decoupling.
-- **Server-Side Reduction**: All reductions (`mean`, `min`, `max`, `stdDev`) are computed over the AOI server-side in Google Earth Engine at 10m spatial resolution.
-
 ---
 
-## 5. Dual-Tier Time-Series Architecture & Granule Deduplication
+## 5. Optical + SAR Multi-Sensor Fusion Methodology (Phase 4)
 
-Both Sentinel-2 (optical) and Sentinel-1 (SAR) pipelines maintain a standardized dual-tier output:
+Phase 4 fuses the canonical Sentinel-2 optical time series and Sentinel-1 SAR time series into a unified multi-sensor feature matrix:
 
 ```
-Google Earth Engine Catalog
-        ↓
-Server-Side AOI Reduction
-        ↓
-1. Raw Observation Series
-   - Preserves complete instrument, orbit, and reprocessing provenance.
-   - Sentinel-2: 23 observations | Sentinel-1: 14 observations
-        ↓
-2. Canonical Daily Agricultural Series
-   - Exactly ONE observation per unique calendar date.
-   - Deterministic Selection Rule: When multiple valid granules exist for the same calendar date,
-     the granule with the latest generation/processing timestamp is deterministically selected.
-   - Validated: 0 duplicate calendar dates in canonical output.
+Canonical Sentinel-2 Optical (NDVI)        Canonical Sentinel-1 SAR (VV, VH, VV/VH)
+              │                                           │
+              └─────────────────────┬─────────────────────┘
+                                    │
+                                    ▼
+                 Nearest-Temporal Multi-Sensor Alignment
+                         (Matching Window: ≤ ±5 Days)
+                                    │
+                                    ▼
+       ┌─────────────────────────────────────────────────────────┐
+       │ 1. Multi-Sensor Fused Observation Matrix (fused_features)│
+       │    - Pre-monsoon: Synchronized optical + radar pairs   │
+       │    - Monsoon: All-weather SAR continuity (optical gaps) │
+       │                                                         │
+       │ 2. Temporal Aggregated Feature Vector (temporal_summary)│
+       │    - Optical: mean, min, max, std, range, slope         │
+       │    - SAR: VV mean/min/max/std, VH mean/min/max/std,     │
+       │           VV/VH ratio mean, VV-VH difference mean       │
+       └─────────────────────────────────────────────────────────┘
 ```
+
+### 5.1 Alignment Strategy & Zero Data Fabrication:
+1. **Anchor-Based Alignment**: For each radar observation pass, the closest optical observation within $\le 5$ calendar days is paired.
+2. **Explicit Gap Representation**: During monsoon months where optical imagery is obscured by clouds, the SAR observation is preserved with `optical_date = None` and `ndvi = None`. No fake or interpolated NDVI values are inserted.
+3. **Temporal Synchronization Metric**: Every observation pair records `temporal_delta_days` ($|t_{\text{opt}} - t_{\text{sar}}|$) to explicitly quantify temporal lag.
+
+### 5.2 Scientific Constraints:
+- **Unvalidated Feature Vector**: This fused dataset represents an **unvalidated multi-sensor feature set**.
+- **No Crop Classification Claims**: Fused features will NOT be used to claim crop identification until real ground truth is integrated in Phase 5 and trained in Phase 6.
+- **No Moisture Stress Claims**: Fused features will NOT be used to claim water stress until validated in Phase 7.
 
 ---
 
 ## 6. Multi-Sensor Temporal Coverage Comparison (Sehore AOI)
 
-| Sensor | Collection | Date Window | Usable Observations | Cloud Impact | Key Strength |
+| Sensor / Product | Collection | Date Window | Total Observations | Aligned Pairs ($\le 5$ days) | Key Role |
 |---|---|---|---|---|---|
-| **Sentinel-2** | `COPERNICUS/S2_SR_HARMONIZED` | Feb 27 – Aug 26, 2026 | 22 unique dates | Excluded June 10 – Aug 26 due to $\ge 39\%$ monsoon clouds | 10m direct chlorophyll / greenness assessment |
-| **Sentinel-1** | `COPERNICUS/S1_GRD` | Feb 27 – Aug 26, 2026 | 14 unique dates | **0% impact** (100% all-weather cloud penetration) | Continuous canopy structure & dielectric tracking across monsoon |
+| **Sentinel-2 (Optical)** | `COPERNICUS/S2_SR_HARMONIZED` | Feb 27 – Aug 26, 2026 | 22 daily passes | 9 pairs | Direct canopy chlorophyll & photosynthetic density |
+| **Sentinel-1 (SAR)** | `COPERNICUS/S1_GRD` | Feb 27 – Aug 26, 2026 | 14 daily passes | 9 pairs (+5 monsoon standalone) | Surface roughness, volume scattering & all-weather continuity |
+| **Fused Feature Set** | Multi-Sensor Pipeline | Feb 27 – Aug 26, 2026 | **14 fused records** | **9 joint / 5 SAR monsoon** | Unified feature foundation for downstream ML |
 
 ---
 
 ## 7. Ground Truth & Model Validation Strategy (Roadmap)
 
-In subsequent phases:
-- **No Fabricated Labels**: Field survey coordinates and crop type annotations will be acquired from verifiable sources.
-- **Validation**: Spatial k-fold cross-validation will be used for Phase 6 (Crop Classification) and Phase 7 (Moisture Stress) to prevent spatial autocorrelation leakage.
+- **Phase 5 (Ground Truth)**: Verifiable agricultural coordinates and crop labels (`field_id, lat, lon, crop_type, season`).
+- **Phase 6 (Crop Classification)**: Supervised ML (Random Forest) trained on the fused optical + SAR feature matrix using spatial k-fold cross-validation.
+- **Phase 7 (Moisture Stress)**: Calibrated moisture-stress modeling evaluated against reference soil moisture datasets.

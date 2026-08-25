@@ -6,15 +6,15 @@ AgriN combines **satellite remote sensing (Sentinel-2 optical + Sentinel-1 SAR v
 
 ---
 
-## Current Status: Phase 3 Complete (Sentinel-1 SAR) ✅
+## Current Status: Phase 4 Complete (Optical + SAR Fusion) ✅
 
 - **Google Earth Engine Integration**: Connected and operational with Google Cloud Project `agrin-506618`.
 - **Pilot Region Foundation**: **Sehore Pilot Test AOI, Madhya Pradesh, India** (`23.20°N, 77.08°E`).
 - **Sentinel-2 Optical Pipeline (Phase 1 & 2)**: Real multi-temporal NDVI trajectories (22 canonical daily observations).
-- **Sentinel-1 SAR Pipeline (Phase 3)**: Real multi-temporal Synthetic Aperture Radar backscatter (`VV`, `VH`, `VV/VH` linear ratio, and `VV - VH` difference) extracted from `COPERNICUS/S1_GRD` (14 canonical daily observations).
-- **All-Weather Monsoon Coverage**: Sentinel-1 C-band radar provides continuous observation continuity across June, July, and August 2026 when optical sensors are blinded by monsoon cloud cover.
-- **Server-Side Reduction**: Earth Engine statistical reductions (min, mean, max, stdDev) executed at native 10m pixel resolution without client raster downloads.
-- **Data Integrity**: 100% real satellite data (`LIVE DERIVED FROM SATELLITE`). No synthetic/demo data used in the real-mode time series.
+- **Sentinel-1 SAR Pipeline (Phase 3)**: Real multi-temporal Synthetic Aperture Radar backscatter (`VV`, `VH`, `VV/VH` linear ratio) from `COPERNICUS/S1_GRD` (14 canonical daily observations).
+- **Multi-Sensor Fusion (Phase 4)**: Temporally fused feature dataset combining optical greenness and radar backscatter across the 180-day window.
+- **Statistical Feature Summary**: Full temporal feature vector (`ndvi_mean`, `ndvi_slope`, `vv_mean_db`, `vh_mean_db`, `vv_vh_ratio_mean`, etc.) generated for downstream ML readiness.
+- **Data Integrity**: 100% real satellite data (`LIVE DERIVED FROM SATELLITE`). Zero synthetic or fabricated data.
 
 ---
 
@@ -45,82 +45,67 @@ AGRIN_MODE=live
 
 ---
 
-## Sentinel-1 SAR Verification (Phase 3)
+## Multi-Sensor Optical + SAR Fusion Verification (Phase 4)
 
-Execute the verified SAR backscatter pipeline over the Sehore pilot AOI:
+Execute the multi-sensor fusion pipeline over the Sehore pilot AOI:
 
 ```bash
-python scripts/test_sehore_sentinel1.py
+python scripts/test_sehore_fusion.py
 ```
 
 ### Sample Output:
 ```text
-==========================================================================================
-AgriN — Phase 3: Real Sentinel-1 SAR Backscatter Pipeline (Sehore AOI)
-==========================================================================================
+===============================================================================================
+AgriN — Phase 4: Optical + SAR Multi-Sensor Fusion Pipeline (Sehore AOI)
+===============================================================================================
 
 [INFO] Initializing Earth Engine with project: agrin-506618
 [INFO] Earth Engine connection established successfully.
 [INFO] Loading Pilot AOI: Sehore Pilot Test AOI (23.2°N, 77.08°E, Buffer: 2000m)
-[INFO] Collection: COPERNICUS/S1_GRD
-[INFO] Temporal Filter: 2026-02-27 to 2026-08-26
-[INFO] Polarizations: Dual (VV + VH) | Orbit Pass: DESCENDING | Instrument Mode: IW
-[INFO] Cloud Independence: All-weather C-band active microwave radar
 
-[INFO] Querying and reducing Sentinel-1 SAR observations over Sehore AOI...
-[INFO] Retrieved 14 raw Sentinel-1 SAR observations.
-[INFO] Canonical SAR series contains 14 daily observations.
+[INFO] Multi-Sensor Fusion Window: 2026-02-27 to 2026-08-26
+[INFO] Optical series retrieved: 22 canonical daily observations.
+[INFO] SAR series retrieved: 14 canonical daily observations.
+[INFO] Performing temporal fusion (nearest observation within +/- 5 days)...
+[INFO] Generated 14 fused multi-sensor observation records.
 
-------------------------------------------------------------------------------------------
-Date         | Orbit      | RelOrb | VV (dB)   | VH (dB)   | VV/VH (lin) | VV-VH (dB) | Image ID       
-------------------------------------------------------------------------------------------
-2026-03-05   | DESCENDING | 63     |    -10.43 |    -17.76 |       10.34 |       7.34 | S1A_IW_GRDH_1S...
-2026-03-17   | DESCENDING | 63     |    -10.45 |    -18.27 |       14.73 |       7.81 | S1A_IW_GRDH_1S...
-2026-03-29   | DESCENDING | 63     |    -10.33 |    -18.43 |       18.77 |       8.10 | S1A_IW_GRDH_1S...
-2026-04-10   | DESCENDING | 63     |    -10.47 |    -18.63 |       19.48 |       8.16 | S1A_IW_GRDH_1S...
-2026-04-22   | DESCENDING | 63     |    -10.14 |    -18.14 |       15.68 |       8.00 | S1A_IW_GRDH_1S...
-2026-05-04   | DESCENDING | 63     |     -9.98 |    -18.17 |       16.55 |       8.19 | S1A_IW_GRDH_1S...
-2026-05-16   | DESCENDING | 63     |    -10.04 |    -18.14 |       15.83 |       8.10 | S1A_IW_GRDH_1S...
-2026-05-28   | DESCENDING | 63     |     -9.76 |    -18.01 |       14.99 |       8.25 | S1A_IW_GRDH_1S...
-2026-06-09   | DESCENDING | 63     |     -9.66 |    -18.39 |       20.43 |       8.73 | S1A_IW_GRDH_1S...
-2026-06-21   | DESCENDING | 63     |     -9.49 |    -18.12 |       17.41 |       8.63 | S1A_IW_GRDH_1S...
-2026-06-28   | DESCENDING | 63     |     -7.18 |    -15.61 |       11.81 |       8.44 | S1D_IW_GRDH_1S...
-2026-07-10   | DESCENDING | 63     |     -8.59 |    -16.78 |       10.92 |       8.19 | S1D_IW_GRDH_1S...
-2026-08-03   | DESCENDING | 63     |     -7.10 |    -14.79 |       10.33 |       7.69 | S1D_IW_GRDH_1S...
-2026-08-15   | DESCENDING | 63     |     -6.75 |    -14.54 |       11.20 |       7.79 | S1D_IW_GRDH_1S...
-------------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------------
+Target Date  | Optical Date | NDVI    | SAR Date     | VV (dB)  | VH (dB)  | VV/VH (lin) | Lag (days)
+-----------------------------------------------------------------------------------------------
+2026-03-05   | 2026-03-06   |  0.3260 | 2026-03-05   |   -10.43 |   -17.76 |       10.34 |          1
+2026-03-17   | 2026-03-16   |  0.2588 | 2026-03-17   |   -10.45 |   -18.27 |       14.73 |          1
+2026-03-29   | 2026-03-31   |  0.2172 | 2026-03-29   |   -10.33 |   -18.43 |       18.77 |          2
+2026-04-10   | 2026-04-10   |  0.2386 | 2026-04-10   |   -10.47 |   -18.63 |       19.48 |          0
+2026-04-22   | 2026-04-22   |  0.2298 | 2026-04-22   |   -10.14 |   -18.14 |       15.68 |          0
+2026-05-04   | 2026-05-05   |  0.2112 | 2026-05-04   |    -9.98 |   -18.17 |       16.55 |          1
+2026-05-16   | 2026-05-15   |  0.1952 | 2026-05-16   |   -10.04 |   -18.14 |       15.83 |          1
+2026-05-28   | 2026-05-25   |  0.1648 | 2026-05-28   |    -9.76 |   -18.01 |       14.99 |          3
+2026-06-09   | 2026-06-09   |  0.1901 | 2026-06-09   |    -9.66 |   -18.39 |       20.43 |          0
+2026-06-21   | CLOUD GAP    |    N/A  | 2026-06-21   |    -9.49 |   -18.12 |       17.41 |         12
+2026-06-28   | CLOUD GAP    |    N/A  | 2026-06-28   |    -7.18 |   -15.61 |       11.81 |         19
+2026-07-10   | CLOUD GAP    |    N/A  | 2026-07-10   |    -8.59 |   -16.78 |       10.92 |         31
+2026-08-03   | CLOUD GAP    |    N/A  | 2026-08-03   |    -7.10 |   -14.79 |       10.33 |         55
+2026-08-15   | CLOUD GAP    |    N/A  | 2026-08-15   |    -6.75 |   -14.54 |       11.20 |         67
+-----------------------------------------------------------------------------------------------
 
-==========================================================================================
-PHASE 3 SENTINEL-1 SAR VERIFICATION SUMMARY
-==========================================================================================
+===============================================================================================
+PHASE 4 TEMPORAL SUMMARY FEATURE VECTOR
+===============================================================================================
   Target Pilot AOI:             Sehore Pilot Test AOI (Sehore, MP)
-  Collection Used:              COPERNICUS/S1_GRD (IW GRDH 1SDV)
-  Date Range Filter:            Past 180 Days (2026-02-27 to 2026-08-26)
-  Raw SAR Observations:         14
-  Canonical Daily Observations: 14
-  First Observation Date:       2026-03-05
-  Last Observation Date:        2026-08-15
-  Mean VV Backscatter:          -9.31 dB (Range: -10.47 to -6.75 dB)
-  Mean VH Backscatter:          -17.41 dB (Range: -18.63 to -14.54 dB)
-  Mean VV/VH Linear Ratio:      14.89 (Range: 10.33 to 20.43)
-  Data Origin:                  LIVE DERIVED FROM SENTINEL-1 (100% Earth Engine Compute)
-  Scientific Status:            UNVALIDATED RADAR BACKSCATTER FEATURE (No moisture inference claimed)
-==========================================================================================
-```
-
----
-
-## Multi-Temporal Sentinel-2 Optical Verification (Phase 2)
-
-```bash
-python scripts/test_sehore_timeseries.py
+  Date Range:                   2026-02-27 to 2026-08-26
+  Optical Observations:         22 passes (NDVI Mean: 0.2286, Range: 0.1648 to 0.3580, Trend Slope: -0.006604)
+  SAR Observations:             14 passes (VV Mean: -9.31 dB, VH Mean: -17.41 dB, VV/VH Ratio: 14.89)
+  Temporally Aligned Pairs:     9 multi-sensor pairs (Lag <= 3 days)
+  Data Origin:                  LIVE DERIVED FROM SATELLITE (100% Earth Engine Compute)
+  Scientific Status:            UNVALIDATED MULTI-SENSOR FEATURE VECTOR
+===============================================================================================
 ```
 
 ---
 
 ## Test Suite
 
-Run the full automated offline test suite (62 tests passing):
+Run the full automated offline test suite (66 tests passing):
 
 ```bash
 pytest tests/ -v
@@ -144,17 +129,20 @@ agriN/
 │   │   ├── indices.py       # Reusable optical indices (NDVI, NDWI)
 │   │   ├── timeseries.py    # Multi-temporal Sentinel-2 NDVI extraction & deduplication
 │   │   └── sar.py           # Multi-temporal Sentinel-1 SAR extraction & backscatter ratios
-│   ├── features/            # Feature extraction modules
+│   ├── features/
+│   │   ├── feature_extraction.py  # Statistical feature extractors
+│   │   └── fusion.py              # Optical + SAR multi-sensor fusion & temporal vector
 │   └── ai/                  # Gemini advisory integration
 ├── scripts/
 │   ├── test_sehore_sentinel2.py   # Phase 1 single-image optical test
 │   ├── test_sehore_timeseries.py  # Phase 2 multi-temporal optical test
-│   └── test_sehore_sentinel1.py   # Phase 3 multi-temporal SAR radar test
+│   ├── test_sehore_sentinel1.py   # Phase 3 multi-temporal SAR radar test
+│   └── test_sehore_fusion.py      # Phase 4 optical + SAR multi-sensor fusion test
 ├── docs/
 │   ├── architecture.md      # System architecture & service boundaries
 │   ├── assumptions.md       # Assumptions & operational limits
 │   └── methodology.md       # Scientific remote sensing & index formulations
-├── tests/                   # Automated pytest suite (62 tests)
+├── tests/                   # Automated pytest suite (66 tests)
 ├── .env.example
 ├── requirements.txt
 └── README.md
