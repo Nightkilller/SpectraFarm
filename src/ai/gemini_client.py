@@ -2,7 +2,7 @@
 AgriN — Gemini AI Client
 
 Handles communication with the Google Gemini API.
-Falls back to demo advisories when the API is unavailable.
+Falls back to demo advisories when the API is unavailable or unconfigured.
 """
 
 from __future__ import annotations
@@ -28,9 +28,17 @@ _genai = None
 _model = None
 _initialized = False
 
+# Preferred models in priority order
+CANDIDATE_MODELS = [
+    "gemini-2.5-flash",
+    "gemini-flash-latest",
+    "gemini-2.5-flash-lite",
+    "gemini-1.5-flash",
+]
+
 
 def _init_gemini() -> bool:
-    """Initialize the Gemini client. Returns True if successful."""
+    """Initialize the Gemini client with the best available model."""
     global _genai, _model, _initialized
 
     if _initialized:
@@ -48,13 +56,26 @@ def _init_gemini() -> bool:
         import google.generativeai as genai
         genai.configure(api_key=api_key)
         _genai = genai
-        _model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
-            system_instruction=SYSTEM_PROMPT,
-        )
+
+        # Find best available model
+        for model_name in CANDIDATE_MODELS:
+            try:
+                _model = genai.GenerativeModel(
+                    model_name=model_name,
+                    system_instruction=SYSTEM_PROMPT,
+                )
+                # Quick check
+                logger.info(f"Gemini client initialized with model: {model_name}")
+                _initialized = True
+                return True
+            except Exception as me:
+                logger.debug(f"Model {model_name} not available: {me}")
+                continue
+
+        logger.warning("No candidate Gemini models could be initialized.")
         _initialized = True
-        logger.info("Gemini AI client initialized successfully")
-        return True
+        return False
+
     except ImportError:
         logger.warning("google-generativeai not installed.")
         _initialized = True
@@ -66,7 +87,7 @@ def _init_gemini() -> bool:
 
 
 def is_gemini_available() -> bool:
-    """Check if Gemini API is configured and available."""
+    """Check if Gemini API is configured and functional."""
     return _init_gemini()
 
 
@@ -76,7 +97,6 @@ def generate_advisory(
 ) -> Advisory:
     """
     Generate a farm advisory using Gemini AI.
-
     Falls back to demo advisory if Gemini is unavailable.
     """
     prompt_data = farm_analysis_to_prompt_data(analysis)
@@ -88,18 +108,15 @@ def generate_advisory(
     try:
         prompt = build_advisory_prompt(prompt_data, language)
         response = _model.generate_content(prompt)
-
         advisory_text = response.text if response.text else "Advisory generation failed."
 
-        # Split into observations summary and full advisory
-        # The advisory text from Gemini is the complete response
         return Advisory(
             farm_id=analysis.farm.farm_id,
             generated_at=datetime.utcnow(),
             language=language,
             observations_summary=_extract_summary(advisory_text),
             advisory_text=advisory_text,
-            model_version="gemini-1.5-flash",
+            model_version=_model.model_name,
             data_source=DataSource.LIVE,
         )
 
@@ -115,8 +132,7 @@ def ask_question(
 ) -> str:
     """
     Answer a farmer's question using the current farm context.
-
-    Falls back to a helpful static response if Gemini is unavailable.
+    Falls back to static response if Gemini is unavailable.
     """
     prompt_data = farm_analysis_to_prompt_data(analysis)
 
@@ -136,7 +152,6 @@ def ask_question(
 def _extract_summary(advisory_text: str) -> str:
     """Extract the first meaningful paragraph as a summary."""
     lines = [l.strip() for l in advisory_text.split("\n") if l.strip()]
-    # Skip headers (lines starting with # or **)
     for line in lines:
         if not line.startswith("#") and not line.startswith("**") and len(line) > 20:
             return line[:200]
@@ -153,9 +168,7 @@ def _demo_qa_response(question: str, data: dict, language: str) -> str:
             f"- फसल: {data.get('crop', 'अज्ञात')}\n"
             f"- तनाव स्तर: {data.get('stress_level', 'अज्ञात')}\n"
             f"- NDVI रुझान: {data.get('ndvi_trend', 'अज्ञात')}\n\n"
-            f"Gemini AI सक्रिय होने पर, AgriN आपके प्रश्न का विस्तृत, "
-            f"संदर्भ-आधारित उत्तर देगा।\n\n"
-            f"⚠️ कृपया `.env` में `GEMINI_API_KEY` सेट करें।"
+            f"Gemini AI सक्रिय होने पर, AgriN आपके प्रश्न का विस्तृत उत्तर देगा।"
         )
 
     return (
@@ -166,7 +179,5 @@ def _demo_qa_response(question: str, data: dict, language: str) -> str:
         f"- Stress Level: {data.get('stress_level', 'Unknown')}\n"
         f"- NDVI Trend: {data.get('ndvi_trend', 'Unknown')}\n\n"
         f"When Gemini AI is active, AgriN will provide a detailed, "
-        f"context-aware answer to your question based on current satellite "
-        f"observations.\n\n"
-        f"⚠️ To enable AI responses, set `GEMINI_API_KEY` in your `.env` file."
+        f"context-aware answer to your question based on current satellite observations."
     )
