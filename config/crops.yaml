@@ -1,0 +1,34 @@
+# =============================================================================
+# AgriN — Crop Configuration
+# =============================================================================
+
+# MVP crop classes for classification
+classes:
+  - id: "wheat"
+    label: "Wheat"
+    label_hi: "गेहूँ"
+    color: "#f4a460"   # Sandy brown
+    class_index: 0
+
+  - id: "rice"
+    label: "Rice"
+    label_hi: "चावल"
+    color: "#2e8b57"   # Sea green
+    class_index: 1
+
+  - id: "other"
+    label: "Other"
+    label_hi: "अन्य"
+    color: "#b0c4de"   # Light steel blue
+    class_index: 2
+
+# Season information (Rabi/Kharif context)
+seasons:
+  rabi:
+    label: "Rabi (Winter)"
+    months: [11, 12, 1, 2, 3, 4]   # Nov–Apr
+    primary_crops: ["wheat"]
+  kharif:
+    label: "Kharif (Monsoon)"
+    months: [6, 7, 8, 9, 10]       # Jun–Oct
+    primary_crops: ["rice"]

@@ -1,0 +1,5 @@
+# Phase 0 — Core
+pydantic>=2.0
+pyyaml>=6.0
+python-dotenv>=1.0
+pytest>=7.0

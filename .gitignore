@@ -1,0 +1,47 @@
+# Environment
+.env
+venv/
+.venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Data artifacts (large files, not for git)
+data/raw/
+data/processed/
+data/ground_truth/
+*.tif
+*.tiff
+*.geojson
+!data/demo/**
+
+# Models (trained model files)
+models/**/*.pkl
+models/**/*.joblib
+models/**/*.h5
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+*.log

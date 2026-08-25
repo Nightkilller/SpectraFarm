@@ -1,0 +1,55 @@
+# =============================================================================
+# AgriN — Application Settings
+# =============================================================================
+
+app:
+  name: "AgriN"
+  version: "0.1.0"
+  description: "AI-Powered Smart Crop Intelligence"
+  mode: "demo"  # "demo" or "live" — overridden by AGRIN_MODE env var
+
+# Pilot region used for initial development.
+# Architecture supports adding more regions later.
+pilot_region:
+  name: "Ludhiana, Punjab"
+  center_lat: 30.9
+  center_lon: 75.85
+  # Approximate AOI bounding box (degrees)
+  bbox:
+    min_lat: 30.85
+    max_lat: 30.95
+    min_lon: 75.80
+    max_lon: 75.90
+
+# Satellite configuration
+satellite:
+  sentinel2:
+    collection: "COPERNICUS/S2_SR_HARMONIZED"
+    cloud_cover_max: 20  # percent
+    bands:
+      - "B2"   # Blue
+      - "B3"   # Green
+      - "B4"   # Red
+      - "B8"   # NIR
+      - "B11"  # SWIR1
+      - "B12"  # SWIR2
+  sentinel1:
+    collection: "COPERNICUS/S1_GRD"
+    orbit: "DESCENDING"
+    polarizations:
+      - "VV"
+      - "VH"
+
+# Date range for satellite retrieval
+date_range:
+  # How many months of historical data to retrieve
+  lookback_months: 6
+
+# Languages supported
+languages:
+  - code: "en"
+    name: "English"
+  - code: "hi"
+    name: "हिन्दी"
+
+default_language: "en"

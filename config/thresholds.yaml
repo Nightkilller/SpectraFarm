@@ -1,0 +1,38 @@
+# =============================================================================
+# AgriN — Vegetation & Stress Thresholds
+# =============================================================================
+# These thresholds are configurable and should be tuned for the target region
+# and crop types.  They are NOT validated scientific constants — see
+# docs/assumptions.md for details.
+# =============================================================================
+
+# NDVI health interpretation
+ndvi:
+  # General vegetation ranges (unitless, 0–1)
+  bare_soil_max: 0.15
+  sparse_vegetation_max: 0.3
+  moderate_vegetation_max: 0.5
+  dense_vegetation_min: 0.5
+
+  # Trend detection: minimum absolute change to count as "improving"/"declining"
+  trend_threshold: 0.05
+
+# NDWI thresholds
+ndwi:
+  water_stress_threshold: 0.0   # Below this may indicate water stress
+  adequate_moisture_min: 0.1
+
+# Moisture / crop stress classification
+# Uses a composite indicator from NDVI, NDWI, and optionally SAR.
+# Each level maps to an indicator range (0 = worst, 1 = best).
+stress:
+  healthy_min: 0.7
+  mild_min: 0.5
+  moderate_min: 0.3
+  # Below moderate_min → Severe
+
+# SAR-based moisture indicator
+sar:
+  # VH/VV ratio thresholds (dB) — indicative only
+  dry_threshold: -14.0
+  wet_threshold: -8.0
