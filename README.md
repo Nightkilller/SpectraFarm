@@ -2,36 +2,25 @@
 
 > *"What is happening to my crop, and what should I consider doing about it?"*
 
-AgriN combines **satellite remote sensing**, **machine learning**, and **Google Gemini AI** to deliver farmer-friendly crop intelligence. It transforms complex geospatial data into actionable advisories that any farmer can understand.
+AgriN combines **satellite remote sensing (Sentinel-2/Sentinel-1 via Google Earth Engine)**, **machine learning**, and **Google Gemini AI** to deliver farmer-friendly crop intelligence.
 
 ---
 
-## What It Does
+## Current Status: Phase 1 Complete ✅
 
-| Capability | Description |
-|---|---|
-| 🛰️ **Satellite Monitoring** | Sentinel-2 (optical) and Sentinel-1 (SAR/radar) imagery via Google Earth Engine |
-| 🌾 **Crop Classification** | Random Forest classifier — Wheat / Rice / Other |
-| 📊 **NDVI Health Tracking** | Vegetation index time series with trend detection |
-| 💧 **Stress Detection** | Satellite-based moisture/crop stress indicator (Healthy → Severe) |
-| 🤖 **AI Advisory** | Google Gemini interprets agricultural measurements into plain-language advice |
-| 💬 **Ask AgriN** | Farmers ask questions in English or Hindi, get contextual answers |
-| 🌍 **Multilingual** | English + Hindi (extensible to more Indian languages) |
+- **Google Earth Engine Integration**: Connected and operational with Google Cloud Project `agrin-506618`.
+- **Pilot Region Foundation**: **Sehore Pilot Test AOI, Madhya Pradesh, India** (`23.20°N, 77.08°E`).
+- **Satellite Data Stream**: Real Sentinel-2 Surface Reflectance Harmonized (`COPERNICUS/S2_SR_HARMONIZED`) imagery verified.
+- **Spectral Index Calculation**: Real-time NDVI calculation using Sentinel-2 B8 (NIR) and B4 (Red) with regional statistical aggregation (Min, Mean, Max, StdDev).
 
 ---
 
-## Quick Start
+## Quick Start & Verification
 
-### Prerequisites
-
-- Python ≥ 3.10
-- (Optional) Google Earth Engine account — for real satellite data
-- (Optional) Gemini API key — for AI advisory
-
-### Setup
+### 1. Environment Setup
 
 ```bash
-# Clone and enter the project
+# Clone the repository
 cd agriN
 
 # Create virtual environment
@@ -40,45 +29,77 @@ source venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
-
-# Create environment file
-cp .env.example .env
-# Edit .env with your API keys (or leave empty for demo mode)
-
-# Run tests
-pytest tests/
-
-# Launch dashboard (Phase 1+)
-# streamlit run dashboard/app.py
 ```
 
-### Demo Mode
+### 2. Configure Environment
 
-AgriN runs in **demo mode** by default — no API keys or external services needed. All demo data is clearly labeled in the UI.
+Create `.env` based on `.env.example`:
+```env
+GEE_PROJECT=agrin-506618
+GEMINI_API_KEY=your_key_here
+AGRIN_MODE=live
+```
 
-Set `AGRIN_MODE=live` in `.env` when you have real credentials configured.
+### 3. Run the Phase 1 Real Sentinel-2 Sehore Test
+
+Execute the verified end-to-end satellite pipeline:
+
+```bash
+python scripts/test_sehore_sentinel2.py
+```
+
+#### Expected Output:
+```text
+======================================================================
+AgriN — Phase 1: Real Sentinel-2 + Sehore Earth Engine Verification
+======================================================================
+
+[INFO] Initializing Google Earth Engine...
+[INFO] Project: agrin-506618
+[INFO] Earth Engine connection established successfully.
+
+[INFO] Loading Pilot AOI: Sehore Pilot Test AOI
+[INFO] Location: Sehore, Madhya Pradesh, India
+[INFO] Center Coordinates: 23.2°N, 77.08°E (Buffer: 2000m)
+
+[INFO] Querying Sentinel-2 Surface Reflectance (COPERNICUS/S2_SR_HARMONIZED)
+[INFO] Temporal Filter: Recent observations (< 20% cloudy pixels)
+[INFO] Sentinel-2 observations found: 25
+
+--------------------------------------------------
+Selected Sentinel-2 Image Metadata
+--------------------------------------------------
+  Image ID:          COPERNICUS/S2_SR_HARMONIZED/...
+  Acquisition Date:  2026-03-11
+  Cloud Percentage:  0.00%
+  Spacecraft:        Sentinel-2C
+  Spectral Bands:    B4 (Red, 665nm), B8 (NIR, 842nm), B2, B3, B11, B12
+
+[INFO] Computing Normalized Difference Vegetation Index (NDVI)...
+       Formula: NDVI = (B8 - B4) / (B8 + B4)
+[INFO] Calculating regional NDVI statistics over Sehore AOI at 10m resolution...
+--------------------------------------------------
+Sehore AOI — Real Satellite NDVI Statistics
+--------------------------------------------------
+  Minimum NDVI:      -0.2596
+  Mean NDVI:         0.2956
+  Maximum NDVI:      0.9685
+  Std Deviation:     0.1706
+--------------------------------------------------
+
+✅ Validation PASSED: NDVI mean is within theoretical physical range [-1.0, +1.0].
+✅ Real satellite data pipeline verified from Earth Engine to AgriN.
+```
 
 ---
 
-## Architecture
+## Test Suite
 
-```
-Satellite Data (Sentinel-1/2 via GEE)
-    ↓
-Geospatial Processing (cloud filtering, compositing)
-    ↓
-Feature Extraction (NDVI, NDWI, SAR features)
-    ↓
-Machine Learning (Random Forest crop classifier)
-    ↓
-Agricultural Intelligence (structured FarmAnalysis)
-    ↓
-Google Gemini AI (contextual explanation)
-    ↓
-Farmer Advisory + Q&A (Dashboard)
-```
+Run the full automated test suite:
 
-**Key principle:** ML and geospatial processing determine the measurements. Gemini explains and contextualizes them — it never fabricates scientific data.
+```bash
+pytest tests/ -v
+```
 
 ---
 
@@ -86,64 +107,29 @@ Farmer Advisory + Q&A (Dashboard)
 
 ```
 agriN/
-├── config/            # YAML configuration (thresholds, crops, settings)
+├── config/
+│   ├── settings.yaml        # Sehore pilot AOI, satellite collections, thresholds
+│   ├── thresholds.yaml      # Configurable NDVI and stress thresholds
+│   └── crops.yaml           # Crop classes & seasons
 ├── src/
-│   ├── config/        # Config loader
-│   ├── data/          # Pydantic schemas
-│   ├── geospatial/    # GEE client, preprocessing, indices
-│   ├── features/      # Feature extraction
-│   ├── ml/            # Crop classifier, stress detector
-│   ├── intelligence/  # Agricultural analysis layer
-│   └── ai/            # Gemini client, prompts, advisory
-├── dashboard/         # Streamlit UI
-├── data/demo/         # Demo datasets
-├── models/            # Trained model files
-├── tests/             # Test suite
-├── docs/              # Documentation
-└── notebooks/         # Exploration notebooks
+│   ├── config/              # Central configuration loader
+│   ├── data/                # Data schemas (Pydantic models)
+│   ├── geospatial/
+│   │   ├── gee_client.py    # Earth Engine initialization & collection filtering
+│   │   └── indices.py       # Reusable spectral indices (NDVI, NDWI)
+│   ├── features/            # Feature extraction modules
+│   └── ai/                  # Gemini advisory integration
+├── scripts/
+│   └── test_sehore_sentinel2.py  # Phase 1 verification script
+├── docs/
+│   ├── architecture.md      # System architecture & service boundaries
+│   ├── assumptions.md       # Assumptions & operational limits
+│   └── methodology.md       # Scientific remote sensing & index formulations
+├── tests/                   # Automated pytest suite
+├── .env.example
+├── requirements.txt
+└── README.md
 ```
-
----
-
-## Development Phases
-
-| Phase | Focus | Status |
-|---|---|---|
-| **0** | Project setup, schemas, config | ✅ Complete |
-| **1** | Dashboard skeleton with demo data | ⬜ Next |
-| **2** | Real satellite data via GEE | ⬜ |
-| **3** | Crop classification (Random Forest) | ⬜ |
-| **4** | Stress detection | ⬜ |
-| **5** | Agricultural intelligence layer | ⬜ |
-| **6** | Gemini AI integration | ⬜ |
-| **7** | Weather context | ⬜ |
-| **8** | Multilingual (Hindi) | ⬜ |
-| **9** | Disease detection (future) | ⬜ |
-| **10** | Polish & documentation | ⬜ |
-
----
-
-## Configuration
-
-All thresholds and parameters are in `config/`:
-
-- **`settings.yaml`** — App settings, pilot region, satellite config
-- **`thresholds.yaml`** — NDVI, stress, SAR thresholds (configurable)
-- **`crops.yaml`** — Crop classes, colors, season mapping
-
----
-
-## Pilot Region
-
-**Ludhiana, Punjab** (~30.9°N, 75.85°E) — a major wheat/rice agricultural belt with good Sentinel coverage.
-
----
-
-## Important Notes
-
-- 🔶 **Data honesty**: Demo data is always explicitly labeled. No fake measurements are presented as real.
-- ⚠️ **Not a diagnosis tool**: Satellite indicators are not a substitute for field verification.
-- 🔒 **Security**: API keys stored in `.env` only — never in source code.
 
 ---
 

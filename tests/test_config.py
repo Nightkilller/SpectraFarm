@@ -13,15 +13,17 @@ class TestSettings:
         assert s.app_name == "AgriN"
         assert s.app_version == "0.1.0"
 
-    def test_demo_mode_default(self):
+    def test_mode_setting(self):
         s = get_settings()
-        assert s.is_demo is True
+        assert s.mode in ["live", "demo"]
 
     def test_pilot_region(self):
         s = get_settings()
         region = s.pilot_region
-        assert region["name"] == "Ludhiana, Punjab"
-        assert region["center_lat"] == 30.9
+        assert region["district"] == "Sehore"
+        assert region["state"] == "Madhya Pradesh"
+        assert region["center_lat"] == 23.2000
+        assert region["center_lon"] == 77.0800
 
     def test_crop_classes(self):
         s = get_settings()

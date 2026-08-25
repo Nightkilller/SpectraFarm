@@ -1,10 +1,8 @@
 """
-AgriN — Google Earth Engine Client
+AgriN — Google Earth Engine Geospatial Client
 
-Handles GEE authentication, Sentinel-2/1 data retrieval, cloud filtering,
-temporal compositing, and index calculation.
-
-Falls back to demo data if GEE is not configured.
+Handles Earth Engine initialization, AOI definition, Sentinel-2 retrieval,
+metadata extraction, and regional index statistics for the Sehore pilot region.
 """
 
 from __future__ import annotations
@@ -14,247 +12,174 @@ from datetime import date, timedelta
 from typing import Any, Optional
 
 from src.config.settings import get_settings
-from src.data.schemas import BoundingBox, DataSource, SatelliteObservation
+from src.geospatial.indices import calculate_ndvi
 
 logger = logging.getLogger(__name__)
 
-# GEE is optional — import lazily
 _ee = None
 _gee_initialized = False
 
 
-def _init_gee() -> bool:
-    """Attempt to initialize Google Earth Engine. Returns True if successful."""
+def init_earth_engine(project: Optional[str] = None) -> bool:
+    """
+    Initialize Google Earth Engine using the configured project.
+
+    Args:
+        project: Google Cloud project ID (defaults to settings.gee_project / GEE_PROJECT)
+
+    Returns:
+        bool: True if initialization succeeded, False otherwise.
+    """
     global _ee, _gee_initialized
 
-    if _gee_initialized:
-        return _ee is not None
+    if _gee_initialized and _ee is not None:
+        return True
 
     settings = get_settings()
-    project = settings.gee_project
-
-    if not project:
-        logger.warning("GEE_PROJECT not set — satellite service will use demo data.")
-        _gee_initialized = True
-        return False
+    target_project = project or settings.gee_project or "agrin-506618"
 
     try:
         import ee
-        ee.Initialize(project=project)
+        ee.Initialize(project=target_project)
         _ee = ee
         _gee_initialized = True
-        logger.info(f"Google Earth Engine initialized with project: {project}")
+        logger.info(f"[INFO] Earth Engine initialized successfully with project: {target_project}")
         return True
     except ImportError:
-        logger.warning("earthengine-api not installed. Run: pip install earthengine-api")
-        _gee_initialized = True
+        logger.error("[ERROR] earthengine-api is not installed.")
+        _gee_initialized = False
         return False
     except Exception as e:
-        logger.error(f"Failed to initialize GEE: {e}")
-        _gee_initialized = True
+        logger.error(f"[ERROR] Failed to initialize Earth Engine with project '{target_project}': {e}")
+        _gee_initialized = False
         return False
 
 
-def is_gee_available() -> bool:
-    """Check if GEE is configured and available."""
-    return _init_gee()
+def get_ee_module():
+    """Return the initialized ee module or None."""
+    if not _gee_initialized:
+        init_earth_engine()
+    return _ee
 
 
-def get_sentinel2_observations(
-    bbox: BoundingBox,
-    start_date: date,
-    end_date: date,
-    farm_id: str,
-    max_cloud_cover: int = 20,
-) -> list[SatelliteObservation]:
+def get_sehore_aoi(use_buffer: bool = True) -> Any:
     """
-    Retrieve and process Sentinel-2 observations for the given AOI and date range.
+    Construct the Sehore Pilot Test AOI geometry.
 
-    If GEE is unavailable, returns empty list (caller should use demo data).
+    Returns:
+        ee.Geometry: Point buffer or BoundingBox geometry representing the pilot AOI.
     """
-    if not _init_gee():
-        logger.info("GEE unavailable — returning empty. Use demo data instead.")
-        return []
+    ee = get_ee_module()
+    if not ee:
+        raise RuntimeError("Earth Engine is not initialized.")
 
-    ee = _ee
     settings = get_settings()
+    region = settings.pilot_region
 
-    try:
-        # Define AOI
-        aoi = ee.Geometry.Rectangle([
-            bbox.min_lon, bbox.min_lat,
-            bbox.max_lon, bbox.max_lat,
+    if use_buffer:
+        center_lat = region.get("center_lat", 23.2000)
+        center_lon = region.get("center_lon", 77.0800)
+        buffer_dist = region.get("buffer_meters", 2000)
+        point = ee.Geometry.Point([center_lon, center_lat])
+        return point.buffer(buffer_dist).bounds()
+    else:
+        bbox = region.get("bbox", {})
+        return ee.Geometry.Rectangle([
+            bbox.get("min_lon", 77.0600),
+            bbox.get("min_lat", 23.1800),
+            bbox.get("max_lon", 77.1000),
+            bbox.get("max_lat", 23.2200),
         ])
 
-        # Get Sentinel-2 collection
-        collection = (
-            ee.ImageCollection(settings.sentinel2_config["collection"])
-            .filterBounds(aoi)
-            .filterDate(str(start_date), str(end_date))
-            .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", max_cloud_cover))
-            .sort("system:time_start")
-        )
 
-        count = collection.size().getInfo()
-        logger.info(f"Found {count} Sentinel-2 images")
-
-        if count == 0:
-            return []
-
-        # Process each image
-        observations = []
-        image_list = collection.toList(min(count, 24))  # Limit to 24 images
-
-        for i in range(min(count, 24)):
-            try:
-                image = ee.Image(image_list.get(i))
-                obs = _process_s2_image(image, aoi, farm_id)
-                if obs:
-                    observations.append(obs)
-            except Exception as e:
-                logger.warning(f"Failed to process S2 image {i}: {e}")
-                continue
-
-        return observations
-
-    except Exception as e:
-        logger.error(f"Sentinel-2 retrieval failed: {e}")
-        return []
-
-
-def get_sentinel1_observations(
-    bbox: BoundingBox,
-    start_date: date,
-    end_date: date,
-    farm_id: str,
-) -> list[SatelliteObservation]:
+def query_sentinel2_imagery(
+    aoi: Any,
+    start_date: str | date,
+    end_date: str | date,
+    max_cloud_percentage: float = 20.0,
+) -> Any:
     """
-    Retrieve Sentinel-1 SAR observations for the given AOI and date range.
-    """
-    if not _init_gee():
-        return []
+    Query the Sentinel-2 Surface Reflectance Harmonized collection filtered by AOI,
+    temporal date window, and cloudy pixel threshold.
 
-    ee = _ee
+    Collection: COPERNICUS/S2_SR_HARMONIZED
+    """
+    ee = get_ee_module()
+    if not ee:
+        raise RuntimeError("Earth Engine is not initialized.")
+
     settings = get_settings()
+    collection_name = settings.sentinel2_config.get("collection", "COPERNICUS/S2_SR_HARMONIZED")
 
-    try:
-        aoi = ee.Geometry.Rectangle([
-            bbox.min_lon, bbox.min_lat,
-            bbox.max_lon, bbox.max_lat,
-        ])
-
-        s1_config = settings.sentinel1_config
-        collection = (
-            ee.ImageCollection(s1_config["collection"])
-            .filterBounds(aoi)
-            .filterDate(str(start_date), str(end_date))
-            .filter(ee.Filter.eq("instrumentMode", "IW"))
-            .filter(ee.Filter.listContains(
-                "transmitterReceiverPolarisation", "VV"
-            ))
-            .filter(ee.Filter.listContains(
-                "transmitterReceiverPolarisation", "VH"
-            ))
-            .sort("system:time_start")
-        )
-
-        count = collection.size().getInfo()
-        logger.info(f"Found {count} Sentinel-1 images")
-
-        if count == 0:
-            return []
-
-        observations = []
-        image_list = collection.toList(min(count, 24))
-
-        for i in range(min(count, 24)):
-            try:
-                image = ee.Image(image_list.get(i))
-                obs = _process_s1_image(image, aoi, farm_id)
-                if obs:
-                    observations.append(obs)
-            except Exception as e:
-                logger.warning(f"Failed to process S1 image {i}: {e}")
-                continue
-
-        return observations
-
-    except Exception as e:
-        logger.error(f"Sentinel-1 retrieval failed: {e}")
-        return []
-
-
-def _process_s2_image(
-    image: Any, aoi: Any, farm_id: str
-) -> Optional[SatelliteObservation]:
-    """Extract band values and indices from a single Sentinel-2 image."""
-    ee = _ee
-
-    # Calculate NDVI and NDWI
-    ndvi = image.normalizedDifference(["B8", "B4"]).rename("NDVI")
-    ndwi = image.normalizedDifference(["B3", "B8"]).rename("NDWI")
-
-    combined = image.addBands(ndvi).addBands(ndwi)
-
-    # Get mean values over AOI
-    stats = combined.reduceRegion(
-        reducer=ee.Reducer.mean(),
-        geometry=aoi,
-        scale=10,
-        maxPixels=1e8,
-    ).getInfo()
-
-    # Get image date
-    timestamp = image.get("system:time_start").getInfo()
-    obs_date = date.fromtimestamp(timestamp / 1000)
-
-    cloud_cover = image.get("CLOUDY_PIXEL_PERCENTAGE").getInfo()
-
-    # Scale reflectance values (SR product uses scale factor of 10000)
-    scale = 10000.0
-
-    return SatelliteObservation(
-        observation_date=obs_date,
-        satellite="Sentinel-2",
-        farm_id=farm_id,
-        ndvi=round(stats.get("NDVI", 0), 4) if stats.get("NDVI") else None,
-        ndwi=round(stats.get("NDWI", 0), 4) if stats.get("NDWI") else None,
-        red=round(stats.get("B4", 0) / scale, 4) if stats.get("B4") else None,
-        green=round(stats.get("B3", 0) / scale, 4) if stats.get("B3") else None,
-        blue=round(stats.get("B2", 0) / scale, 4) if stats.get("B2") else None,
-        nir=round(stats.get("B8", 0) / scale, 4) if stats.get("B8") else None,
-        swir1=round(stats.get("B11", 0) / scale, 4) if stats.get("B11") else None,
-        swir2=round(stats.get("B12", 0) / scale, 4) if stats.get("B12") else None,
-        cloud_cover=round(cloud_cover, 1) if cloud_cover else None,
-        data_source=DataSource.LIVE,
+    return (
+        ee.ImageCollection(collection_name)
+        .filterBounds(aoi)
+        .filterDate(str(start_date), str(end_date))
+        .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", max_cloud_percentage))
+        .sort("CLOUDY_PIXEL_PERCENTAGE")  # Prioritize lowest cloud cover
     )
 
 
-def _process_s1_image(
-    image: Any, aoi: Any, farm_id: str
-) -> Optional[SatelliteObservation]:
-    """Extract VV/VH values from a single Sentinel-1 image."""
-    ee = _ee
+def extract_image_metadata(image: Any) -> dict[str, Any]:
+    """
+    Extract essential scientific and acquisition metadata from a Sentinel-2 image.
+    """
+    ee = get_ee_module()
+    if not ee:
+        raise RuntimeError("Earth Engine is not initialized.")
 
-    stats = image.reduceRegion(
-        reducer=ee.Reducer.mean(),
+    info = image.getInfo()
+    props = info.get("properties", {})
+    
+    timestamp_ms = props.get("system:time_start", 0)
+    obs_date = date.fromtimestamp(timestamp_ms / 1000) if timestamp_ms else None
+
+    bands = [b.get("id") for b in info.get("bands", [])]
+
+    return {
+        "id": info.get("id", "Unknown"),
+        "date": str(obs_date) if obs_date else "Unknown",
+        "cloud_percentage": props.get("CLOUDY_PIXEL_PERCENTAGE", None),
+        "spacecraft": props.get("SPACECRAFT_NAME", "Sentinel-2"),
+        "processing_baseline": props.get("PROCESSING_BASELINE", "Unknown"),
+        "bands": bands,
+    }
+
+
+def compute_aoi_ndvi_statistics(
+    image: Any,
+    aoi: Any,
+    scale: int = 10,
+) -> dict[str, float]:
+    """
+    Calculate summary statistics (min, mean, max) of the NDVI band over the AOI.
+    """
+    ee = get_ee_module()
+    if not ee:
+        raise RuntimeError("Earth Engine is not initialized.")
+
+    # Ensure NDVI band exists
+    image_with_ndvi = calculate_ndvi(image)
+    ndvi_band = image_with_ndvi.select("NDVI")
+
+    # Combine min, mean, max reducers
+    combined_reducer = (
+        ee.Reducer.mean()
+        .combine(ee.Reducer.min(), "", True)
+        .combine(ee.Reducer.max(), "", True)
+        .combine(ee.Reducer.stdDev(), "", True)
+    )
+
+    stats = ndvi_band.reduceRegion(
+        reducer=combined_reducer,
         geometry=aoi,
-        scale=10,
+        scale=scale,
         maxPixels=1e8,
     ).getInfo()
 
-    timestamp = image.get("system:time_start").getInfo()
-    obs_date = date.fromtimestamp(timestamp / 1000)
-
-    vv = stats.get("VV")
-    vh = stats.get("VH")
-
-    return SatelliteObservation(
-        observation_date=obs_date,
-        satellite="Sentinel-1",
-        farm_id=farm_id,
-        vv=round(vv, 2) if vv else None,
-        vh=round(vh, 2) if vh else None,
-        vh_vv_ratio=round(vh - vv, 2) if (vv and vh) else None,
-        data_source=DataSource.LIVE,
-    )
+    return {
+        "min": round(stats.get("NDVI_min", 0.0), 4) if stats.get("NDVI_min") is not None else None,
+        "mean": round(stats.get("NDVI_mean", 0.0), 4) if stats.get("NDVI_mean") is not None else None,
+        "max": round(stats.get("NDVI_max", 0.0), 4) if stats.get("NDVI_max") is not None else None,
+        "stdDev": round(stats.get("NDVI_stdDev", 0.0), 4) if stats.get("NDVI_stdDev") is not None else None,
+    }

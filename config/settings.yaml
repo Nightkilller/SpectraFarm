@@ -6,20 +6,24 @@ app:
   name: "AgriN"
   version: "0.1.0"
   description: "AI-Powered Smart Crop Intelligence"
-  mode: "demo"  # "demo" or "live" — overridden by AGRIN_MODE env var
+  mode: "live"  # "demo" or "live" — overridden by AGRIN_MODE env var
 
-# Pilot region used for initial development.
-# Architecture supports adding more regions later.
+# Pilot region: Sehore, Madhya Pradesh, India
+# Uses a small test AOI around the pilot site to ensure fast, deterministic retrieval.
 pilot_region:
-  name: "Ludhiana, Punjab"
-  center_lat: 30.9
-  center_lon: 75.85
-  # Approximate AOI bounding box (degrees)
+  name: "Sehore Pilot Test AOI"
+  district: "Sehore"
+  state: "Madhya Pradesh"
+  country: "India"
+  center_lat: 23.2000
+  center_lon: 77.0800
+  buffer_meters: 2000
+  # Approximate AOI bounding box for tests (~4km x 4km box)
   bbox:
-    min_lat: 30.85
-    max_lat: 30.95
-    min_lon: 75.80
-    max_lon: 75.90
+    min_lat: 23.1800
+    max_lat: 23.2200
+    min_lon: 77.0600
+    max_lon: 77.1000
 
 # Satellite configuration
 satellite:
@@ -27,12 +31,12 @@ satellite:
     collection: "COPERNICUS/S2_SR_HARMONIZED"
     cloud_cover_max: 20  # percent
     bands:
-      - "B2"   # Blue
-      - "B3"   # Green
-      - "B4"   # Red
-      - "B8"   # NIR
-      - "B11"  # SWIR1
-      - "B12"  # SWIR2
+      - "B2"   # Blue (490 nm)
+      - "B3"   # Green (560 nm)
+      - "B4"   # Red (665 nm)
+      - "B8"   # NIR (842 nm)
+      - "B11"  # SWIR1 (1610 nm)
+      - "B12"  # SWIR2 (2190 nm)
   sentinel1:
     collection: "COPERNICUS/S1_GRD"
     orbit: "DESCENDING"
@@ -42,8 +46,7 @@ satellite:
 
 # Date range for satellite retrieval
 date_range:
-  # How many months of historical data to retrieve
-  lookback_months: 6
+  lookback_months: 3
 
 # Languages supported
 languages:
