@@ -1,5 +1,30 @@
-# Phase 0 — Core
+# =============================================================================
+# AgriN — All Dependencies
+# =============================================================================
+
+# Core
 pydantic>=2.0
 pyyaml>=6.0
 python-dotenv>=1.0
+
+# Dashboard
+streamlit>=1.30
+streamlit-folium>=0.15
+folium>=0.15
+plotly>=5.0
+pandas>=2.0
+numpy>=1.24
+
+# ML
+scikit-learn>=1.3
+joblib>=1.3
+
+# AI
+google-generativeai>=0.5
+
+# Satellite (optional — needs GEE account)
+# earthengine-api>=0.1.380
+# geemap>=0.30
+
+# Testing
 pytest>=7.0
