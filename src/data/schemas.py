@@ -117,6 +117,33 @@ class SatelliteObservation(BaseModel):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# Multi-Temporal NDVI Time Series (Phase 2)
+# ═══════════════════════════════════════════════════════════════════════════
+
+class NDVITimeSeriesPoint(BaseModel):
+    """A single temporal observation point in an NDVI time series."""
+    observation_date: date
+    image_id: str
+    cloud_percentage: float = Field(..., ge=0, le=100)
+    min_ndvi: float = Field(..., ge=-1.0, le=1.0)
+    mean_ndvi: float = Field(..., ge=-1.0, le=1.0)
+    max_ndvi: float = Field(..., ge=-1.0, le=1.0)
+    stdDev_ndvi: Optional[float] = None
+    data_source: DataSource = DataSource.LIVE
+
+
+class NDVITimeSeries(BaseModel):
+    """Collection of multi-temporal NDVI observations for an AOI."""
+    aoi_name: str
+    start_date: date
+    end_date: date
+    cloud_threshold: float = Field(..., ge=0, le=100)
+    observations_count: int = Field(..., ge=0)
+    points: list[NDVITimeSeriesPoint] = Field(default_factory=list)
+    data_source: DataSource = DataSource.LIVE
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # Crop Prediction
 # ═══════════════════════════════════════════════════════════════════════════
 

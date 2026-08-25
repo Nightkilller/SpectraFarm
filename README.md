@@ -6,12 +6,13 @@ AgriN combines **satellite remote sensing (Sentinel-2/Sentinel-1 via Google Eart
 
 ---
 
-## Current Status: Phase 1 Complete ✅
+## Current Status: Phase 2 Complete ✅
 
 - **Google Earth Engine Integration**: Connected and operational with Google Cloud Project `agrin-506618`.
 - **Pilot Region Foundation**: **Sehore Pilot Test AOI, Madhya Pradesh, India** (`23.20°N, 77.08°E`).
-- **Satellite Data Stream**: Real Sentinel-2 Surface Reflectance Harmonized (`COPERNICUS/S2_SR_HARMONIZED`) imagery verified.
-- **Spectral Index Calculation**: Real-time NDVI calculation using Sentinel-2 B8 (NIR) and B4 (Red) with regional statistical aggregation (Min, Mean, Max, StdDev).
+- **Sentinel-2 Multi-Temporal Pipeline**: Real multi-temporal NDVI trajectory extracted across chronological Sentinel-2 Surface Reflectance observations.
+- **Server-Side Reduction**: Earth Engine statistical reductions (min, mean, max, stdDev) executed at native 10m pixel resolution without client raster downloads.
+- **Data Integrity**: 100% real satellite data. No synthetic/demo data used in the real-mode time series.
 
 ---
 
@@ -40,62 +41,59 @@ GEMINI_API_KEY=your_key_here
 AGRIN_MODE=live
 ```
 
-### 3. Run the Phase 1 Real Sentinel-2 Sehore Test
+---
 
-Execute the verified end-to-end satellite pipeline:
+## Multi-Temporal Sentinel-2 Verification (Phase 2)
+
+Execute the verified multi-temporal satellite pipeline over the Sehore pilot AOI:
 
 ```bash
-python scripts/test_sehore_sentinel2.py
+python scripts/test_sehore_timeseries.py
 ```
 
-#### Expected Output:
+### Sample Output:
 ```text
-======================================================================
-AgriN — Phase 1: Real Sentinel-2 + Sehore Earth Engine Verification
-======================================================================
+================================================================================
+AgriN — Phase 2: Multi-Temporal Sentinel-2 NDVI Time Series Pipeline
+================================================================================
 
-[INFO] Initializing Google Earth Engine...
-[INFO] Project: agrin-506618
+[INFO] Initializing Earth Engine with project: agrin-506618
 [INFO] Earth Engine connection established successfully.
+[INFO] Loading Pilot AOI: Sehore Pilot Test AOI (23.2°N, 77.08°E, Buffer: 2000m)
+[INFO] Collection: COPERNICUS/S2_SR_HARMONIZED
+[INFO] Querying and computing multi-temporal NDVI statistics over Sehore AOI...
+[INFO] Successfully retrieved 23 real Sentinel-2 observations.
 
-[INFO] Loading Pilot AOI: Sehore Pilot Test AOI
-[INFO] Location: Sehore, Madhya Pradesh, India
-[INFO] Center Coordinates: 23.2°N, 77.08°E (Buffer: 2000m)
+--------------------------------------------------------------------------------
+Date         | Cloud %  | Min NDVI  | Mean NDVI  | Max NDVI  | StdDev   | Image ID            
+--------------------------------------------------------------------------------
+2026-03-01   |   0.00% |   -0.0911 |     0.3580 |    0.9436 |   0.2076 | 20260301T051741_20...
+2026-03-06   |   0.00% |   -0.1659 |     0.3260 |    0.9544 |   0.1831 | 20260306T051649_20...
+2026-03-11   |   0.00% |   -0.2596 |     0.2956 |    0.9685 |   0.1706 | 20260311T051651_20...
+...
+2026-06-09   |   0.59% |   -0.0657 |     0.1901 |    0.8321 |   0.1231 | 20260609T051651_20...
+--------------------------------------------------------------------------------
 
-[INFO] Querying Sentinel-2 Surface Reflectance (COPERNICUS/S2_SR_HARMONIZED)
-[INFO] Temporal Filter: Recent observations (< 20% cloudy pixels)
-[INFO] Sentinel-2 observations found: 25
-
---------------------------------------------------
-Selected Sentinel-2 Image Metadata
---------------------------------------------------
-  Image ID:          COPERNICUS/S2_SR_HARMONIZED/...
-  Acquisition Date:  2026-03-11
-  Cloud Percentage:  0.00%
-  Spacecraft:        Sentinel-2C
-  Spectral Bands:    B4 (Red, 665nm), B8 (NIR, 842nm), B2, B3, B11, B12
-
-[INFO] Computing Normalized Difference Vegetation Index (NDVI)...
-       Formula: NDVI = (B8 - B4) / (B8 + B4)
-[INFO] Calculating regional NDVI statistics over Sehore AOI at 10m resolution...
---------------------------------------------------
-Sehore AOI — Real Satellite NDVI Statistics
---------------------------------------------------
-  Minimum NDVI:      -0.2596
-  Mean NDVI:         0.2956
-  Maximum NDVI:      0.9685
-  Std Deviation:     0.1706
---------------------------------------------------
-
-✅ Validation PASSED: NDVI mean is within theoretical physical range [-1.0, +1.0].
-✅ Real satellite data pipeline verified from Earth Engine to AgriN.
+================================================================================
+PHASE 2 MULTI-TEMPORAL SENTINEL-2 NDVI SUMMARY
+================================================================================
+  Target Pilot AOI:          Sehore Pilot Test AOI (Sehore, MP)
+  Date Range Filter:         Past 180 Days (2026-02-27 to 2026-08-26)
+  Cloud Cover Threshold:     < 20%
+  Total Valid Observations:  23
+  First Observation Date:    2026-03-01 (Mean NDVI: 0.3580)
+  Last Observation Date:     2026-06-09 (Mean NDVI: 0.1901)
+  Temporal Trajectory Range: Mean NDVI spans from 0.1648 to 0.3580
+  Overall Time Series Mean:  0.2315
+  Data Origin:               100% Live Google Earth Engine (COPERNICUS/S2_SR_HARMONIZED)
+================================================================================
 ```
 
 ---
 
 ## Test Suite
 
-Run the full automated test suite:
+Run the full automated offline test suite (57 tests passing):
 
 ```bash
 pytest tests/ -v
@@ -109,23 +107,25 @@ pytest tests/ -v
 agriN/
 ├── config/
 │   ├── settings.yaml        # Sehore pilot AOI, satellite collections, thresholds
-│   ├── thresholds.yaml      # Configurable NDVI and stress thresholds
+│   ├── thresholds.yaml      # Guarded uncalibrated thresholds (placeholders)
 │   └── crops.yaml           # Crop classes & seasons
 ├── src/
 │   ├── config/              # Central configuration loader
 │   ├── data/                # Data schemas (Pydantic models)
 │   ├── geospatial/
 │   │   ├── gee_client.py    # Earth Engine initialization & collection filtering
-│   │   └── indices.py       # Reusable spectral indices (NDVI, NDWI)
+│   │   ├── indices.py       # Reusable spectral indices (NDVI, NDWI)
+│   │   └── timeseries.py    # Multi-temporal NDVI extraction & reducers
 │   ├── features/            # Feature extraction modules
 │   └── ai/                  # Gemini advisory integration
 ├── scripts/
-│   └── test_sehore_sentinel2.py  # Phase 1 verification script
+│   ├── test_sehore_sentinel2.py   # Phase 1 single-image test
+│   └── test_sehore_timeseries.py  # Phase 2 multi-temporal time series test
 ├── docs/
 │   ├── architecture.md      # System architecture & service boundaries
 │   ├── assumptions.md       # Assumptions & operational limits
 │   └── methodology.md       # Scientific remote sensing & index formulations
-├── tests/                   # Automated pytest suite
+├── tests/                   # Automated pytest suite (57 tests)
 ├── .env.example
 ├── requirements.txt
 └── README.md

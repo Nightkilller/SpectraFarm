@@ -1,4 +1,4 @@
-# AgriN — Scientific Methodology (Phase 1)
+# AgriN — Scientific Methodology
 
 ## 1. Remote Sensing Data Source
 
@@ -31,25 +31,50 @@ $$\text{NDVI} = \frac{\text{NIR} - \text{Red}}{\text{NIR} + \text{Red}} = \frac{
 | **B4** | Red | 665 nm | 10 m | Chlorophyll absorption peak |
 | **B8** | NIR | 842 nm | 10 m | Mesophyll cell leaf reflectance |
 
-### Theoretical Interpretation
-- **NDVI < 0.15**: Bare soil, fallow fields, water bodies, or uncultivated land.
-- **0.15 ≤ NDVI < 0.30**: Sparse or emerging canopy.
-- **0.30 ≤ NDVI < 0.50**: Moderate crop canopy development.
-- **NDVI ≥ 0.50**: Dense, healthy, photosynthetically active crop vegetation.
+---
+
+## 4. Multi-Temporal NDVI Time Series Methodology (Phase 2)
+
+In Phase 2, the pipeline evaluates chronological satellite observations over a configurable seasonal window:
+
+```
+Configured Date Window & Cloud Threshold
+        ↓
+Query COPERNICUS/S2_SR_HARMONIZED over Sehore AOI
+        ↓
+Sort Ascending by Timestamp (`system:time_start`)
+        ↓
+Server-Side Map: calculate_ndvi() on each image
+        ↓
+Spatial Reducer over AOI (min, mean, max, stdDev at 10m scale)
+        ↓
+Structured NDVITimeSeries Container (Pydantic models)
+        ↓
+Export to CSV / JSON for downstream analysis
+```
+
+### Scientific Rigor & Principles:
+1. **Server-Side Reduction**: Statistics are computed across Earth Engine clusters via `reduceRegion`, avoiding client-side raster downloads.
+2. **No Data Fabrication**: Only real, unmasked observations from valid satellite passes are retained.
+3. **Strict Attribution**:
+   - NDVI trajectory indicates vegetation greenness dynamics.
+   - Crop type is **NOT** inferred from NDVI alone.
+   - Phenological stages are **NOT** claimed without validated crop-calendar models.
+   - Trajectory decline is **NOT** classified as "stress" without calibrated moisture models.
 
 ---
 
-## 4. Cloud Filtering Methodology & Limitations
+## 5. Cloud Filtering Methodology & Limitations
 
-In Phase 1, filtering uses the scene-level metadata property `CLOUDY_PIXEL_PERCENTAGE < 20%`.
+Filtering uses the scene-level metadata property `CLOUDY_PIXEL_PERCENTAGE < 20%`.
 
 ### Current Limitations:
 1. **Scene-Level Filter**: Filters entire satellite tiles, but localized sub-pixel cirrus clouds or shadows over the AOI can still introduce noise.
-2. **Phase 2 Evolution**: In subsequent phases, pixel-level cloud masking will be implemented using the Sentinel-2 **QA60** bitmask and **SCL (Scene Classification Layer)** probabilities.
+2. **Phase 3+ Evolution**: In subsequent phases, pixel-level cloud masking will be implemented using the Sentinel-2 **QA60** bitmask and **SCL (Scene Classification Layer)** probabilities.
 
 ---
 
-## 5. Ground Truth & Validation Strategy (Roadmap)
+## 6. Ground Truth & Validation Strategy (Roadmap)
 
 To validate crop classification and stress detection in subsequent phases:
 - **No Fabricated Labels**: Agricultural labels will not be randomly populated or artificially synthesized.
