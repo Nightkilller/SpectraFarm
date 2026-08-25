@@ -155,4 +155,4 @@ class TestStressAnalysis:
 
     def test_empty_observations_fallback(self):
         stress = assess_stress([], "test_farm")
-        assert stress.confidence == 0.1  # Low confidence fallback
+        assert stress.confidence == 0.0  # Zero confidence for uncalibrated fallback

@@ -1,11 +1,12 @@
 """
-AgriN — Stress Detection
+AgriN — Stress Detection Module (Guarded / Uncalibrated)
 
-Classifies crop stress from satellite indicators.  Uses a transparent,
-configurable rules-based approach combining NDVI, NDWI, and trend data.
+Classifies crop stress from satellite indicators.
 
-This is a satellite-based crop stress INDICATOR, NOT a validated physical
-soil-moisture measurement.
+IMPORTANT: Thresholds are currently UNCALIBRATED placeholders.
+The production stress-classification path is explicitly guarded and will
+warn that thresholds are uncalibrated until regional ground truth calibration
+is completed.
 """
 
 from __future__ import annotations
@@ -31,19 +32,23 @@ logger = logging.getLogger(__name__)
 def assess_stress(
     observations: list[SatelliteObservation],
     farm_id: str,
+    allow_uncalibrated: bool = True,
 ) -> StressAssessment:
     """
     Compute a stress assessment from satellite observations.
 
-    The indicator is a composite score (0–1, where 1 = best/healthiest)
-    derived from:
-    - Current NDVI relative to thresholds
-    - NDVI trend (improving/declining)
-    - NDWI (water content indicator)
-
-    All thresholds are loaded from config/thresholds.yaml.
+    Guarded: If thresholds in config/thresholds.yaml are marked `calibrated: false`,
+    the assessment is strictly flagged as uncalibrated/demo indicator and
+    never represented as a validated production soil-moisture measurement.
     """
     settings = get_settings()
+    is_calibrated = settings.stress_thresholds.get("calibrated", False)
+
+    if not is_calibrated:
+        logger.warning(
+            "[GUARD] Moisture stress thresholds are UNCALIBRATED placeholders. "
+            "Stress classification is indicative/experimental only."
+        )
 
     # Filter to optical observations with NDVI
     s2_obs = sorted(
@@ -55,26 +60,26 @@ def assess_stress(
         logger.warning("No optical observations available for stress assessment")
         return _fallback_assessment(farm_id)
 
-    # Determine data source
-    data_source = DataSource.DEMO if all(o.data_source == DataSource.DEMO for o in s2_obs) else DataSource.LIVE
+    # If uncalibrated, force data_source to DEMO/unvalidated
+    data_source = DataSource.DEMO if not is_calibrated else DataSource.LIVE
 
     # Current and previous NDVI
     ndvi_current = s2_obs[-1].ndvi
     ndvi_previous = s2_obs[-2].ndvi if len(s2_obs) >= 2 else None
 
     # NDVI trend
-    trend = _compute_trend(s2_obs, settings.ndvi_thresholds["trend_threshold"])
+    trend = _compute_trend(s2_obs, settings.ndvi_thresholds.get("trend_threshold", 0.05))
 
-    # Composite stress indicator
+    # Composite stress indicator (experimental)
     indicator = _compute_stress_indicator(s2_obs, settings)
 
-    # Classify stress level
+    # Classify stress level using placeholder bounds
     stress_thresholds = settings.stress_thresholds
-    if indicator >= stress_thresholds["healthy_min"]:
+    if indicator >= stress_thresholds.get("healthy_min", 0.7):
         stress_level = StressLevel.HEALTHY
-    elif indicator >= stress_thresholds["mild_min"]:
+    elif indicator >= stress_thresholds.get("mild_min", 0.5):
         stress_level = StressLevel.MILD
-    elif indicator >= stress_thresholds["moderate_min"]:
+    elif indicator >= stress_thresholds.get("moderate_min", 0.3):
         stress_level = StressLevel.MODERATE
     else:
         stress_level = StressLevel.SEVERE
@@ -87,7 +92,7 @@ def assess_stress(
         trend=trend,
         ndvi_current=round(ndvi_current, 4),
         ndvi_previous=round(ndvi_previous, 4) if ndvi_previous is not None else None,
-        confidence=_estimate_confidence(len(s2_obs)),
+        confidence=0.0 if not is_calibrated else _estimate_confidence(len(s2_obs)),
         data_source=data_source,
     )
 
@@ -118,52 +123,42 @@ def _compute_stress_indicator(
 ) -> float:
     """
     Compute a composite stress indicator (0–1).
-
-    Components:
-    - NDVI score (60% weight): current NDVI normalized to thresholds
-    - NDVI trend score (25% weight): positive trend = less stress
-    - NDWI score (15% weight): higher NDWI = less water stress
     """
     ndvi_thresholds = settings.ndvi_thresholds
 
-    # --- NDVI score ---
+    # NDVI score
     current_ndvi = observations[-1].ndvi
-    # Normalize: bare_soil_max → 0.0, dense_vegetation_min → 1.0
-    ndvi_floor = ndvi_thresholds["bare_soil_max"]
-    ndvi_ceil = ndvi_thresholds["dense_vegetation_min"]
+    ndvi_floor = ndvi_thresholds.get("bare_soil_max", 0.15)
+    ndvi_ceil = ndvi_thresholds.get("dense_vegetation_min", 0.5)
     ndvi_score = (current_ndvi - ndvi_floor) / max(ndvi_ceil - ndvi_floor, 0.01)
     ndvi_score = max(0.0, min(1.0, ndvi_score))
 
-    # --- Trend score ---
+    # Trend score
     if len(observations) >= 3:
         ndvi_vals = np.array([o.ndvi for o in observations])
         x = np.arange(len(ndvi_vals), dtype=float)
         slope = np.polyfit(x, ndvi_vals, 1)[0]
-        # Normalize slope: -0.05 → 0.0, +0.05 → 1.0
         trend_score = (slope + 0.05) / 0.10
         trend_score = max(0.0, min(1.0, trend_score))
     else:
         trend_score = 0.5
 
-    # --- NDWI score ---
+    # NDWI score
     ndwi_vals = [o.ndwi for o in observations if o.ndwi is not None]
     if ndwi_vals:
         mean_ndwi = np.mean(ndwi_vals)
-        ndwi_threshold = settings.ndwi_thresholds["water_stress_threshold"]
-        ndwi_ceil = settings.ndwi_thresholds["adequate_moisture_min"]
+        ndwi_threshold = settings.ndwi_thresholds.get("water_stress_threshold", 0.0)
+        ndwi_ceil = settings.ndwi_thresholds.get("adequate_moisture_min", 0.1)
         ndwi_score = (mean_ndwi - ndwi_threshold) / max(ndwi_ceil - ndwi_threshold, 0.01)
         ndwi_score = max(0.0, min(1.0, ndwi_score))
     else:
         ndwi_score = 0.5
 
-    # Weighted composite
     indicator = 0.60 * ndvi_score + 0.25 * trend_score + 0.15 * ndwi_score
-
     return max(0.0, min(1.0, indicator))
 
 
 def _estimate_confidence(num_observations: int) -> float:
-    """Estimate confidence based on number of observations."""
     if num_observations >= 8:
         return 0.85
     elif num_observations >= 5:
@@ -175,13 +170,12 @@ def _estimate_confidence(num_observations: int) -> float:
 
 
 def _fallback_assessment(farm_id: str) -> StressAssessment:
-    """Return a low-confidence assessment when no data is available."""
     return StressAssessment(
         farm_id=farm_id,
         stress_level=StressLevel.MODERATE,
         indicator_value=0.5,
         assessment_date=date.today(),
         trend=HealthTrend.STABLE,
-        confidence=0.1,
+        confidence=0.0,
         data_source=DataSource.DEMO,
     )

@@ -1,38 +1,40 @@
 # =============================================================================
-# AgriN — Vegetation & Stress Thresholds
+# AgriN — Vegetation & Stress Thresholds (UNCALIBRATED / PLACEHOLDERS)
 # =============================================================================
-# These thresholds are configurable and should be tuned for the target region
-# and crop types.  They are NOT validated scientific constants — see
-# docs/assumptions.md for details.
+# STATUS: UNCALIBRATED / PLACEHOLDER
+# NOTE: These values are initial literature placeholders. They have NOT been
+# calibrated or validated against ground truth in Sehore or any pilot region.
+# Production stress classification is guarded and DISABLED until reference
+# observations and calibration are available.
 # =============================================================================
 
-# NDVI health interpretation
+calibration_status:
+  is_calibrated: false
+  calibrated_at: null
+  calibration_notes: "Unvalidated literature placeholders. Production stress classification disabled."
+
+# NDVI health interpretation (Uncalibrated placeholders)
 ndvi:
-  # General vegetation ranges (unitless, 0–1)
   bare_soil_max: 0.15
   sparse_vegetation_max: 0.3
   moderate_vegetation_max: 0.5
   dense_vegetation_min: 0.5
-
-  # Trend detection: minimum absolute change to count as "improving"/"declining"
   trend_threshold: 0.05
 
-# NDWI thresholds
+# NDWI thresholds (Uncalibrated placeholders)
 ndwi:
-  water_stress_threshold: 0.0   # Below this may indicate water stress
+  water_stress_threshold: 0.0
   adequate_moisture_min: 0.1
 
-# Moisture / crop stress classification
-# Uses a composite indicator from NDVI, NDWI, and optionally SAR.
-# Each level maps to an indicator range (0 = worst, 1 = best).
+# Moisture / crop stress classification (Uncalibrated placeholders)
 stress:
+  calibrated: false
   healthy_min: 0.7
   mild_min: 0.5
   moderate_min: 0.3
-  # Below moderate_min → Severe
 
-# SAR-based moisture indicator
+# SAR-based moisture indicator (Uncalibrated placeholders)
 sar:
-  # VH/VV ratio thresholds (dB) — indicative only
+  calibrated: false
   dry_threshold: -14.0
   wet_threshold: -8.0
