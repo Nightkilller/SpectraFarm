@@ -74,8 +74,15 @@ def run_ground_truth_validation_pipeline() -> bool:
         print(f"  Dataset Name:                 {report.dataset_name}")
         print(f"  Total Survey Records:         {report.total_records}")
         print(f"  Valid Records:                {report.valid_records_count}")
-        print(f"  Flagged Records:              {report.flagged_records_count}")
-        print(f"  Validation Status:            {report.validation_status}")
+        print(f"  Rejected Records:             {report.rejected_records_count}")
+        print(f"  Records Requiring Review:     {report.requires_review_count}")
+        print(f"  Unique Field IDs:             {report.unique_field_ids_count}")
+        print(f"  Duplicate Field IDs:          {report.duplicate_field_ids_count}")
+        print(f"  Unique Locations:             {report.unique_locations_count}")
+        print(f"  Duplicate Coordinates (<15m): {report.duplicate_locations_count}")
+        print(f"  Records Outside AOI Box:      {report.records_outside_bbox_count}")
+        print(f"  Provenance Complete:          {report.provenance_complete}")
+        print(f"  Validation Status:            {report.validation_status.value if hasattr(report.validation_status, 'value') else report.validation_status}")
         print(f"  Issues / Alerts:              {report.issues[0] if report.issues else 'None'}")
         print("-" * 95)
         print()
@@ -85,7 +92,8 @@ def run_ground_truth_validation_pipeline() -> bool:
         for cfile in candidate_files:
             df = pd.read_csv(cfile)
             records, report = validate_ground_truth_dataframe(df, dataset_name=cfile.name, expected_bbox=expected_bbox)
-            print(f"[REPORT] {cfile.name}: Status={report.validation_status}, Records={report.total_records}, Valid={report.valid_records_count}")
+            val_stat = report.validation_status.value if hasattr(report.validation_status, "value") else str(report.validation_status)
+            print(f"[REPORT] {cfile.name}: Status={val_stat}, Records={report.total_records}, Valid={report.valid_records_count}, Rejected={report.rejected_records_count}, Review={report.requires_review_count}")
 
     # Step 2: Output BigQuery Target Cloud Architecture Schema
     bq_schema = get_bigquery_ground_truth_schema()

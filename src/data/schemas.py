@@ -258,6 +258,23 @@ class FusedFeatureDataset(BaseModel):
 # Ground Truth Field Observations (Phase 5)
 # ═══════════════════════════════════════════════════════════════════════════
 
+class GroundTruthRecordStatus(str, Enum):
+    """Validation status for an individual ground truth record."""
+    VALIDATED = "VALIDATED"
+    INVALID = "INVALID"
+    REQUIRES_REVIEW = "REQUIRES_REVIEW"
+
+
+class GroundTruthDatasetStatus(str, Enum):
+    """Validation status for a candidate ground truth dataset."""
+    DATA_NOT_AVAILABLE = "DATA_NOT_AVAILABLE"
+    RAW = "RAW"
+    VALIDATION_PENDING = "VALIDATION_PENDING"
+    VALIDATED = "VALIDATED"
+    INVALID = "INVALID"
+    REQUIRES_REVIEW = "REQUIRES_REVIEW"
+
+
 class GroundTruthRecord(BaseModel):
     """A validated ground-truth field observation for crop classification/validation."""
     field_id: str = Field(..., description="Unique field or plot identifier")
@@ -270,7 +287,7 @@ class GroundTruthRecord(BaseModel):
     verification_method: str = Field(..., description="Method used (e.g. GPS In-Situ Survey, Drone, Agricultural Extension)")
     confidence: float = Field(default=1.0, ge=0.0, le=1.0, description="Observer confidence in crop label")
     spatial_block_id: Optional[str] = Field(None, description="Spatial cluster ID for spatial k-fold cross-validation")
-    status: str = Field(default="VALIDATED", description="VALIDATED, FLAGGED, or PENDING_VERIFICATION")
+    status: GroundTruthRecordStatus = Field(default=GroundTruthRecordStatus.VALIDATED, description="VALIDATED, INVALID, or REQUIRES_REVIEW")
 
 
 class GroundTruthValidationReport(BaseModel):
@@ -278,14 +295,23 @@ class GroundTruthValidationReport(BaseModel):
     dataset_name: str
     total_records: int
     valid_records_count: int
-    flagged_records_count: int
+    rejected_records_count: int
+    requires_review_count: int
+    unique_field_ids_count: int
+    duplicate_field_ids_count: int
     unique_locations_count: int
     duplicate_locations_count: int
+    records_outside_bbox_count: int
+    missing_values_count: int
     crop_class_distribution: dict[str, int]
+    crop_class_percentages: dict[str, float]
     season_distribution: dict[str, int]
+    date_range_start: Optional[date] = None
+    date_range_end: Optional[date] = None
     spatial_blocks_count: int
     bounding_box_valid: bool
-    validation_status: str  # PASS, REJECTED, WAITING_FOR_DATA
+    provenance_complete: bool
+    validation_status: GroundTruthDatasetStatus
     issues: list[str] = Field(default_factory=list)
 
 

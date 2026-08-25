@@ -12,12 +12,15 @@ from src.data.ground_truth_validator import (
     haversine_distance_meters,
     validate_ground_truth_dataframe,
 )
-from src.data.schemas import GroundTruthRecord
+from src.data.schemas import (
+    GroundTruthDatasetStatus,
+    GroundTruthRecord,
+    GroundTruthRecordStatus,
+)
 
 
 class TestGroundTruthValidation:
     def test_haversine_distance(self):
-        # Coordinates ~111 meters apart in latitude (0.001 deg ~ 111m)
         dist = haversine_distance_meters(23.2000, 77.0800, 23.2010, 77.0800)
         assert 100.0 < dist < 120.0
 
@@ -50,17 +53,17 @@ class TestGroundTruthValidation:
         bbox = {"min_lat": 23.0, "max_lat": 23.4, "min_lon": 76.8, "max_lon": 77.3}
         records, report = validate_ground_truth_dataframe(df, dataset_name="Test Valid", expected_bbox=bbox)
 
-        assert report.validation_status == "PASS"
+        assert report.validation_status == GroundTruthDatasetStatus.VALIDATED
         assert report.valid_records_count == 2
-        assert report.flagged_records_count == 0
+        assert report.rejected_records_count == 0
         assert report.duplicate_locations_count == 0
         assert report.crop_class_distribution == {"Wheat": 1, "Mustard": 1}
+        assert report.crop_class_percentages == {"Wheat": 50.0, "Mustard": 50.0}
         assert len(records) == 2
         assert records[0].crop_type == "Wheat"
-        assert records[0].status == "VALIDATED"
+        assert records[0].status == GroundTruthRecordStatus.VALIDATED
 
     def test_missing_required_column_rejected(self):
-        # Missing 'crop_type'
         df = pd.DataFrame([
             {
                 "field_id": "SEH_001",
@@ -74,7 +77,7 @@ class TestGroundTruthValidation:
         ])
 
         records, report = validate_ground_truth_dataframe(df, dataset_name="Test Missing Col")
-        assert report.validation_status == "REJECTED"
+        assert report.validation_status == GroundTruthDatasetStatus.INVALID
         assert any("crop_type" in issue for issue in report.issues)
 
     def test_out_of_bounds_coordinate_flagged(self):
@@ -95,10 +98,11 @@ class TestGroundTruthValidation:
         records, report = validate_ground_truth_dataframe(df, dataset_name="Test OOB", expected_bbox=bbox)
 
         assert report.bounding_box_valid is False
-        assert any("bounding box" in issue for issue in report.issues)
+        assert report.validation_status == GroundTruthDatasetStatus.REQUIRES_REVIEW
+        assert report.requires_review_count == 1
+        assert records[0].status == GroundTruthRecordStatus.REQUIRES_REVIEW
 
     def test_duplicate_coordinate_detection(self):
-        # Two records with virtually identical coordinates (1 meter apart)
         df = pd.DataFrame([
             {
                 "field_id": "DUP_001",
@@ -124,7 +128,34 @@ class TestGroundTruthValidation:
 
         records, report = validate_ground_truth_dataframe(df, dataset_name="Test DUP", duplicate_tolerance_meters=15.0)
         assert report.duplicate_locations_count == 1
-        assert any("spatial tolerance" in issue for issue in report.issues)
+        assert report.validation_status == GroundTruthDatasetStatus.REQUIRES_REVIEW
+
+    def test_duplicate_field_ids_flagged(self):
+        df = pd.DataFrame([
+            {
+                "field_id": "COLLISION_01",
+                "latitude": 23.2010,
+                "longitude": 77.0810,
+                "crop_type": "Wheat",
+                "season": "Rabi",
+                "reference_date": "2026-03-10",
+                "source": "KVK",
+                "verification_method": "GPS",
+            },
+            {
+                "field_id": "COLLISION_01",  # Same ID
+                "latitude": 23.2500,
+                "longitude": 77.0900,
+                "crop_type": "Soybean",
+                "season": "Kharif",
+                "reference_date": "2026-07-10",
+                "source": "KVK",
+                "verification_method": "GPS",
+            },
+        ])
+        records, report = validate_ground_truth_dataframe(df, dataset_name="Test Duplicate IDs")
+        assert report.duplicate_field_ids_count == 1
+        assert report.validation_status == GroundTruthDatasetStatus.REQUIRES_REVIEW
 
     def test_spatial_block_assignment(self):
         df = pd.DataFrame([
@@ -133,13 +164,12 @@ class TestGroundTruthValidation:
         ])
         blocked = assign_spatial_blocks(df, grid_size_deg=0.02)
         assert "spatial_block_id" in blocked.columns
-        # The two points separated by >0.04 deg lat should have different block IDs
         assert blocked.iloc[0]["spatial_block_id"] != blocked.iloc[1]["spatial_block_id"]
 
     def test_empty_dataframe_waiting_status(self):
         empty_df = pd.DataFrame()
         records, report = validate_ground_truth_dataframe(empty_df, dataset_name="Empty")
-        assert report.validation_status == "WAITING_FOR_DATA"
+        assert report.validation_status == GroundTruthDatasetStatus.DATA_NOT_AVAILABLE
         assert report.total_records == 0
         assert len(records) == 0
 
