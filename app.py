@@ -383,28 +383,77 @@ st.markdown("""
 with st.sidebar:
     st.markdown("### 📍 Farm Coordinates & GPS")
 
-    # High-Accuracy HTML5 Browser Geolocation Auto-Detection
+    # Reliable HTML5 Browser Geolocation Auto-Detection Component
     st.markdown("""
-    <div class="gps-card-white">
-        <div style="font-size:0.75rem; font-weight:700; color:#0284c7; margin-bottom:6px; font-family:'JetBrains Mono';">🎯 DEVICE GPS PINPOINT</div>
-        <button class="gps-btn-primary" onclick="
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(function(pos) {
-                    const lat = pos.coords.latitude.toFixed(5);
-                    const lon = pos.coords.longitude.toFixed(5);
-                    const url = new URL(window.location.href);
-                    url.searchParams.set('lat', lat);
-                    url.searchParams.set('lon', lon);
-                    window.location.href = url.href;
-                }, function(err) {
-                    alert('GPS error: ' + err.message);
-                }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
-            } else {
-                alert('Geolocation not supported by browser.');
-            }
-        ">📍 Auto-Detect My Current GPS</button>
-    </div>
+    <div style="font-size:0.75rem; font-weight:700; color:#0284c7; margin-bottom:4px; font-family:'JetBrains Mono';">🎯 DEVICE GPS PINPOINT</div>
     """, unsafe_allow_html=True)
+
+    import streamlit.components.v1 as components
+    components.html("""
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <style>
+      button {
+        background: linear-gradient(90deg, #0284c7 0%, #059669 100%);
+        color: #ffffff;
+        font-weight: 700;
+        border: none;
+        border-radius: 6px;
+        padding: 9px 12px;
+        font-size: 0.82rem;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        cursor: pointer;
+        width: 100%;
+        box-shadow: 0 2px 8px rgba(2, 132, 199, 0.3);
+      }
+      button:hover {
+        opacity: 0.92;
+      }
+    </style>
+    </head>
+    <body style="margin:0; padding:0; background:transparent;">
+      <button id="gpsBtn" onclick="getLocation()">📍 Auto-Detect My Current GPS</button>
+      <script>
+        function getLocation() {
+          const btn = document.getElementById('gpsBtn');
+          btn.innerText = '🛰️ Acquiring GPS Position...';
+          btn.disabled = true;
+
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              function(pos) {
+                const lat = pos.coords.latitude.toFixed(4);
+                const lon = pos.coords.longitude.toFixed(4);
+                try {
+                  const pUrl = new URL(window.parent.location.href);
+                  pUrl.searchParams.set('lat', lat);
+                  pUrl.searchParams.set('lon', lon);
+                  window.parent.location.href = pUrl.href;
+                } catch(e) {
+                  const tUrl = new URL(window.top.location.href);
+                  tUrl.searchParams.set('lat', lat);
+                  tUrl.searchParams.set('lon', lon);
+                  window.top.location.href = tUrl.href;
+                }
+              },
+              function(err) {
+                alert('GPS Error: ' + err.message + '. Please allow Location Access in your browser address bar.');
+                btn.innerText = '📍 Auto-Detect My Current GPS';
+                btn.disabled = false;
+              },
+              { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+            );
+          } else {
+            alert('Geolocation not supported by browser.');
+            btn.innerText = '📍 Auto-Detect My Current GPS';
+            btn.disabled = false;
+          }
+        }
+      </script>
+    </body>
+    </html>
+    """, height=44)
 
     PRESETS = {
         "🌾 Current Selected Location": (st.session_state["lat"], st.session_state["lon"]),
