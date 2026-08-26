@@ -25,6 +25,15 @@ class TestSettings:
         assert region["center_lat"] == 23.2000
         assert region["center_lon"] == 77.0800
 
+    def test_ml_reference_regions(self):
+        s = get_settings()
+        primary = s.ml_reference_region
+        secondary = s.secondary_ml_reference_region
+        assert primary["state"] == "Uttar Pradesh"
+        assert primary["dataset"] == "agrifieldnet"
+        assert secondary["state"] == "Bihar"
+        assert secondary["dataset"] == "agrifieldnet"
+
     def test_crop_classes(self):
         s = get_settings()
         assert len(s.crop_classes) == 3

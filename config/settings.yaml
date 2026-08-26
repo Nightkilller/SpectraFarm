@@ -9,7 +9,7 @@ app:
   mode: "live"  # "demo" or "live" — overridden by AGRIN_MODE env var
 
 # Pilot region: Sehore, Madhya Pradesh, India
-# Uses a small test AOI around the pilot site to ensure fast, deterministic retrieval.
+# Uses a small test AOI around the pilot site for satellite demonstration.
 pilot_region:
   name: "Sehore Pilot Test AOI"
   district: "Sehore"
@@ -24,6 +24,29 @@ pilot_region:
     max_lat: 23.2200
     min_lon: 77.0600
     max_lon: 77.1000
+
+# Public ML Reference Region (Primary: Uttar Pradesh)
+# Used for public-data ML experimentation and crop classification model training
+ml_reference_region:
+  name: "Uttar Pradesh Public ML Benchmark Region"
+  state: "Uttar Pradesh"
+  country: "India"
+  dataset: "agrifieldnet"
+  dataset_name: "AgriFieldNet Competition Dataset"
+  doi: "10.34911/rdnt.wu92p1"
+  source_url: "https://source.coop/radiantearth/agrifieldnet-competition"
+  license: "CC-BY-4.0"
+
+# Public ML Reference Region (Secondary: Bihar)
+secondary_ml_reference_region:
+  name: "Bihar Public ML Benchmark Region"
+  state: "Bihar"
+  country: "India"
+  dataset: "agrifieldnet"
+  dataset_name: "AgriFieldNet Competition Dataset"
+  doi: "10.34911/rdnt.wu92p1"
+  source_url: "https://source.coop/radiantearth/agrifieldnet-competition"
+  license: "CC-BY-4.0"
 
 # Satellite configuration
 satellite:

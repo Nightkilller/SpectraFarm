@@ -80,11 +80,19 @@ class Settings:
     def is_demo(self) -> bool:
         return self.mode == "demo"
 
-    # ── Pilot Region ────────────────────────────────────────────────────
+    # ── Pilot Region & ML Reference Regions ─────────────────────────────
 
     @property
     def pilot_region(self) -> dict[str, Any]:
         return self._settings["pilot_region"]
+
+    @property
+    def ml_reference_region(self) -> dict[str, Any]:
+        return self._settings.get("ml_reference_region", {})
+
+    @property
+    def secondary_ml_reference_region(self) -> dict[str, Any]:
+        return self._settings.get("secondary_ml_reference_region", {})
 
     # ── Satellite ────────────────────────────────────────────────────────
 
