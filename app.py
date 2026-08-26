@@ -1,5 +1,5 @@
 """
-SpectraFarm — AI-Driven Automated Crop Type, Moisture Stress Detection & Irrigation Advisory
+SpectraFarm — Advanced Satellite & AI Agricultural Intelligence Platform
 EPICS Project (DSN3099)
 Optical (Sentinel-2) + Microwave (Sentinel-1) Dual-Sensor Intelligence
 """
@@ -14,7 +14,7 @@ from pathlib import Path
 import json
 
 import folium
-from folium.plugins import Fullscreen, LocateControl, MeasureControl
+from folium.plugins import Fullscreen, LocateControl, MeasureControl, Geocoder
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -61,104 +61,128 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# Parse URL query params for live GPS if available
+qparams = st.query_params
+if "lat" in qparams and "lon" in qparams:
+    try:
+        st.session_state["lat"] = float(qparams["lat"])
+        st.session_state["lon"] = float(qparams["lon"])
+    except ValueError:
+        pass
+
 if "lat" not in st.session_state:
     st.session_state["lat"] = 26.8500
 if "lon" not in st.session_state:
     st.session_state["lon"] = 80.9500
 if "active_map_view" not in st.session_state:
-    st.session_state["active_map_view"] = "Crop Map"
+    st.session_state["active_map_view"] = "Crop Type Map"
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Premium Dark Cyber-Agronomic UI Theme (Matching Exact Spec Image)
+# World-Class Dark Cyber-Agricultural CSS Design
 # ═══════════════════════════════════════════════════════════════════════════
 
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
-    /* Deep Cyber Black Canvas */
+    /* Global Dark Cyber Theme */
     .stApp {
-        background-color: #060b14;
+        background-color: #040811;
         background-image: 
-            radial-gradient(at 10% 15%, rgba(0, 255, 136, 0.04) 0px, transparent 50%),
-            radial-gradient(at 90% 85%, rgba(0, 229, 255, 0.04) 0px, transparent 50%);
+            radial-gradient(at 0% 0%, rgba(0, 255, 136, 0.05) 0px, transparent 50%),
+            radial-gradient(at 100% 0%, rgba(0, 229, 255, 0.05) 0px, transparent 50%),
+            radial-gradient(at 50% 100%, rgba(13, 27, 42, 0.5) 0px, transparent 70%);
         font-family: 'Outfit', sans-serif;
         color: #e2e8f0;
     }
 
-    /* Top Dashboard Title Banner */
-    .system-banner {
-        background: linear-gradient(135deg, rgba(13, 27, 42, 0.95) 0%, rgba(10, 22, 36, 0.98) 100%);
-        border: 1px solid rgba(0, 255, 136, 0.25);
-        border-radius: 14px;
-        padding: 1.2rem 1.8rem;
+    /* Main Dashboard Header */
+    .header-banner {
+        background: linear-gradient(135deg, rgba(13, 27, 42, 0.95) 0%, rgba(7, 14, 26, 0.98) 100%);
+        border: 1px solid rgba(0, 255, 136, 0.2);
+        border-radius: 16px;
+        padding: 1.4rem 2rem;
         margin-bottom: 1.2rem;
-        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(0, 255, 136, 0.03);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), inset 0 0 20px rgba(0, 255, 136, 0.03);
         display: flex;
         justify-content: space-between;
         align-items: center;
         flex-wrap: wrap;
         gap: 15px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .header-banner::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; width: 4px; height: 100%;
+        background: linear-gradient(180deg, #00ff88 0%, #00e5ff 100%);
+        box-shadow: 0 0 15px #00ff88;
     }
 
     .banner-title {
-        font-size: 1.4rem;
+        font-size: 1.6rem;
         font-weight: 800;
-        letter-spacing: -0.3px;
-        background: linear-gradient(90deg, #ffffff 0%, #00ff88 60%, #00e5ff 100%);
+        letter-spacing: -0.5px;
+        background: linear-gradient(90deg, #ffffff 0%, #00ff88 50%, #00e5ff 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         margin: 0;
     }
 
     .banner-subtitle {
-        font-size: 0.82rem;
+        font-size: 0.85rem;
         color: #94a3b8;
-        margin-top: 3px;
+        margin-top: 4px;
         font-weight: 400;
     }
 
-    /* Sensor & Status Badges */
-    .tech-badge {
+    /* Badges */
+    .badge-chip {
         display: inline-flex;
         align-items: center;
         gap: 6px;
         padding: 5px 12px;
         border-radius: 8px;
-        font-size: 0.75rem;
+        font-size: 0.72rem;
         font-weight: 700;
         font-family: 'JetBrains Mono', monospace;
         letter-spacing: 0.5px;
+        text-transform: uppercase;
     }
-    .badge-s2 {
+    .chip-green {
         background: rgba(0, 255, 136, 0.12);
         border: 1px solid #00ff88;
         color: #00ff88;
+        box-shadow: 0 0 10px rgba(0, 255, 136, 0.2);
     }
-    .badge-s1 {
+    .chip-cyan {
         background: rgba(0, 229, 255, 0.12);
         border: 1px solid #00e5ff;
         color: #00e5ff;
+        box-shadow: 0 0 10px rgba(0, 229, 255, 0.2);
     }
-    .badge-rf {
+    .chip-orange {
         background: rgba(255, 170, 0, 0.12);
         border: 1px solid #ffaa00;
         color: #ffaa00;
+        box-shadow: 0 0 10px rgba(255, 170, 0, 0.2);
     }
 
-    /* Grid Section Containers */
-    .dash-box {
-        background: rgba(13, 21, 38, 0.85);
+    /* Panels & Containers */
+    .card-panel {
+        background: rgba(11, 18, 33, 0.85);
         border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 12px;
+        border-radius: 14px;
         padding: 1.2rem;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
-        backdrop-filter: blur(10px);
+        box-shadow: 0 6px 25px rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(12px);
         margin-bottom: 1rem;
     }
 
-    .box-header {
-        font-size: 0.85rem;
+    .panel-header {
+        font-size: 0.82rem;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 1px;
@@ -173,8 +197,8 @@ st.markdown("""
     }
 
     /* Sensor Thumbnails on Left */
-    .sensor-card {
-        background: rgba(10, 16, 28, 0.9);
+    .sensor-item {
+        background: rgba(7, 12, 22, 0.9);
         border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 10px;
         padding: 10px;
@@ -182,108 +206,157 @@ st.markdown("""
         display: flex;
         align-items: center;
         gap: 12px;
+        transition: transform 0.2s ease;
+    }
+    .sensor-item:hover {
+        transform: translateX(4px);
+        border-color: rgba(0, 255, 136, 0.3);
     }
 
-    .sensor-thumb {
-        width: 54px;
-        height: 54px;
+    .sensor-icon-box {
+        width: 52px;
+        height: 52px;
         border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1.4rem;
-        box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        font-size: 1.5rem;
     }
-    .thumb-s2 {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        border: 1px solid #34d399;
+    .box-s2 {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.4) 100%);
+        border: 1px solid #10b981;
+        box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
     }
-    .thumb-s1 {
-        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-        border: 1px solid #60a5fa;
+    .box-s1 {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(29, 78, 216, 0.4) 100%);
+        border: 1px solid #3b82f6;
+        box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
     }
 
-    /* Pipeline Step Indicators */
-    .pipeline-step {
+    /* Pipeline Status Flow */
+    .step-badge {
         display: flex;
         align-items: center;
         gap: 8px;
-        font-size: 0.8rem;
+        font-size: 0.78rem;
         color: #94a3b8;
-        padding: 4px 8px;
+        padding: 5px 10px;
         border-radius: 6px;
         margin-bottom: 4px;
         font-family: 'JetBrains Mono', monospace;
+        background: rgba(255, 255, 255, 0.02);
     }
-    .step-done {
+    .step-active {
         color: #00ff88;
-        background: rgba(0, 255, 136, 0.06);
-        border-left: 2px solid #00ff88;
+        background: rgba(0, 255, 136, 0.08);
+        border-left: 3px solid #00ff88;
     }
 
-    /* Irrigation Recommendation Cards */
-    .irrig-metric {
-        background: rgba(15, 23, 42, 0.9);
-        border: 1px solid rgba(0, 229, 255, 0.2);
-        border-radius: 10px;
-        padding: 1rem;
-        text-align: left;
+    /* Metric Cards */
+    .metric-card-box {
+        background: rgba(13, 21, 38, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 14px;
+        padding: 1.2rem;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+        transition: transform 0.2s ease, border-color 0.2s ease;
     }
-    .irrig-label {
+    .metric-card-box:hover {
+        transform: translateY(-3px);
+        border-color: rgba(0, 255, 136, 0.35);
+    }
+
+    .card-label {
         font-size: 0.75rem;
-        color: #94a3b8;
         font-weight: 600;
         text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: #94a3b8;
         font-family: 'JetBrains Mono', monospace;
     }
-    .irrig-val {
-        font-size: 1.4rem;
+    .card-val {
+        font-size: 1.6rem;
         font-weight: 800;
-        color: #00e5ff;
+        color: #ffffff;
         margin-top: 4px;
+        line-height: 1.2;
     }
-    .irrig-sub {
+    .card-sub {
         font-size: 0.78rem;
         color: #64748b;
-        margin-top: 2px;
+        margin-top: 4px;
     }
 
-    /* Map Legend Panels */
-    .legend-panel {
-        background: rgba(10, 16, 28, 0.95);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+    /* Live GPS Detection Box */
+    .gps-cta-box {
+        background: linear-gradient(135deg, rgba(0, 229, 255, 0.12) 0%, rgba(0, 255, 136, 0.12) 100%);
+        border: 1px solid rgba(0, 229, 255, 0.4);
+        border-radius: 12px;
+        padding: 14px;
+        margin-bottom: 15px;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(0, 229, 255, 0.15);
+    }
+
+    .gps-btn {
+        background: linear-gradient(90deg, #00e5ff 0%, #00ff88 100%);
+        border: none;
+        color: #040811;
+        font-weight: 800;
+        font-size: 0.85rem;
+        padding: 9px 18px;
         border-radius: 8px;
-        padding: 10px 14px;
-        font-size: 0.78rem;
+        cursor: pointer;
+        width: 100%;
+        box-shadow: 0 4px 14px rgba(0, 255, 136, 0.3);
+        transition: transform 0.2s ease;
     }
-    .legend-item {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 4px;
-        color: #cbd5e1;
-    }
-    .legend-color {
-        width: 14px;
-        height: 14px;
-        border-radius: 3px;
-        display: inline-block;
+    .gps-btn:hover {
+        transform: scale(1.02);
     }
 
-    /* Sidebar Theme */
+    /* Sidebar Styling */
     div[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #070c18 0%, #050810 100%);
+        background: linear-gradient(180deg, #050a14 0%, #03060c 100%);
         border-right: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    /* Primary Action Buttons */
+    .stButton > button {
+        background: linear-gradient(90deg, #00c853 0%, #00e5ff 100%) !important;
+        color: #000000 !important;
+        font-weight: 800 !important;
+        border: none !important;
+        border-radius: 10px !important;
+        padding: 0.6rem 1.2rem !important;
+        box-shadow: 0 4px 15px rgba(0, 255, 136, 0.3) !important;
+    }
+
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 10px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        background: rgba(13, 21, 38, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 8px 8px 0 0;
+        color: #94a3b8;
+        font-weight: 600;
+    }
+    .stTabs [aria-selected="true"] {
+        background: rgba(0, 255, 136, 0.15) !important;
+        border-color: #00ff88 !important;
+        color: #00ff88 !important;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Top Header Banner (Matching Spec Layout)
+# Top Header Banner
 # ═══════════════════════════════════════════════════════════════════════════
 
 st.markdown("""
-<div class="system-banner">
+<div class="header-banner">
     <div>
         <h1 class="banner-title">🛰️ SpectraFarm Intelligence Platform</h1>
         <div class="banner-subtitle">
@@ -291,76 +364,58 @@ st.markdown("""
         </div>
     </div>
     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <span class="tech-badge badge-s2">🌿 Sentinel-2 (Optical)</span>
-        <span class="tech-badge badge-s1">📡 Sentinel-1 (Radar SAR)</span>
-        <span class="tech-badge badge-rf">🌲 Random Forest (92.4% Acc)</span>
+        <span class="badge-chip chip-green">🌿 Sentinel-2 Optical</span>
+        <span class="badge-chip chip-cyan">📡 Sentinel-1 SAR Radar</span>
+        <span class="badge-chip chip-orange">🌲 Random Forest (92.4% Acc)</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Sidebar — Controls, Location & GPS Auto-Detection
+# Sidebar — Live GPS Geolocation & Controls
 # ═══════════════════════════════════════════════════════════════════════════
 
 with st.sidebar:
-    st.markdown("### 📍 Farm Coordinates & GPS")
+    st.markdown("### 📍 Live Farm Coordinates & GPS")
 
-    # Live GPS Geolocation Button
+    # High-Accuracy HTML5 Browser Geolocation Auto-Detection
     st.markdown("""
-    <div style="background:rgba(0, 229, 255, 0.08); border:1px solid rgba(0, 229, 255, 0.3); border-radius:10px; padding:10px; margin-bottom:12px; text-align:center;">
-        <div style="font-size:0.75rem; font-weight:700; color:#00e5ff; margin-bottom:6px;">🎯 AUTO-DETECT MY LOCATION</div>
-        <button onclick="
+    <div class="gps-cta-box">
+        <div style="font-size:0.75rem; font-weight:700; color:#00e5ff; margin-bottom:6px;">🎯 PRECISE GPS AUTO-DETECTION</div>
+        <button class="gps-btn" onclick="
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(function(pos) {
-                    const lat = pos.coords.latitude.toFixed(4);
-                    const lon = pos.coords.longitude.toFixed(4);
+                    const lat = pos.coords.latitude.toFixed(5);
+                    const lon = pos.coords.longitude.toFixed(5);
                     const url = new URL(window.location.href);
                     url.searchParams.set('lat', lat);
                     url.searchParams.set('lon', lon);
                     window.location.href = url.href;
                 }, function(err) {
-                    alert('Geolocation error: ' + err.message);
-                });
+                    alert('GPS error: ' + err.message + '. Please ensure location access is allowed in your browser.');
+                }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
             } else {
                 alert('Geolocation not supported by browser.');
             }
-        " style="
-            background: linear-gradient(90deg, #00e5ff 0%, #00ff88 100%);
-            border: none;
-            color: #000;
-            font-weight: 800;
-            font-size: 0.82rem;
-            padding: 7px 14px;
-            border-radius: 6px;
-            cursor: pointer;
-            width: 100%;
-        ">📍 Detect My Live GPS</button>
+        ">📍 Detect My Live GPS Location</button>
+        <div style="font-size:0.68rem; color:#94a3b8; margin-top:5px;">Accurate to your device's GPS chip / WiFi location</div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Check URL query params for live GPS
-    qparams = st.query_params
-    if "lat" in qparams and "lon" in qparams:
-        try:
-            st.session_state["lat"] = float(qparams["lat"])
-            st.session_state["lon"] = float(qparams["lon"])
-        except ValueError:
-            pass
-
-    # Quick Select Agricultural Regions
+    # Preset Agricultural Locations
     PRESETS = {
-        "🌾 Current Location": (st.session_state["lat"], st.session_state["lon"]),
+        "🌾 Current Selected Location": (st.session_state["lat"], st.session_state["lon"]),
         "🌾 Lucknow, UP (Wheat / Sugarcane)": (26.8500, 80.9500),
         "🌾 Kanpur, UP (Wheat Belt)": (26.4500, 80.3500),
         "🟡 Agra, UP (Mustard Region)": (27.1800, 78.0200),
         "🌱 Varanasi, UP (Rice / Lentil)": (25.3200, 83.0100),
         "🌾 Patna, Bihar (Rice / Wheat)": (25.6100, 85.1400),
         "🌽 Muzaffarpur, Bihar (Maize Belt)": (26.1200, 85.3900),
-        "🌾 Sehore, MP (Pilot AOI)": (23.2000, 77.0800),
+        "🌾 Sehore, MP (Central Pilot AOI)": (23.2000, 77.0800),
     }
 
-    selected_p = st.selectbox("Quick Jump to Region:", list(PRESETS.keys()), index=0)
-    if selected_p != "🌾 Current Location":
+    selected_p = st.selectbox("Quick Jump to Agricultural Region:", list(PRESETS.keys()), index=0)
+    if selected_p != "🌾 Current Selected Location":
         st.session_state["lat"], st.session_state["lon"] = PRESETS[selected_p]
 
     cur_lat = st.number_input("Latitude (°N)", value=float(st.session_state["lat"]), step=0.002, format="%.4f")
@@ -369,7 +424,7 @@ with st.sidebar:
     st.session_state["lon"] = cur_lon
 
     st.markdown("---")
-    st.markdown("### 🎛️ Processing Parameters")
+    st.markdown("### 🎛️ Analysis Parameters")
     buffer_m = st.slider("Field Buffer Radius (m)", 250, 3000, 1000, 250)
     lookback = st.slider("Historical Lookback (Months)", 1, 12, 6, 1)
 
@@ -381,17 +436,18 @@ with st.sidebar:
     st.markdown("---")
     scan_btn = st.button("🚀 Re-Scan Satellite Data", type="primary", use_container_width=True)
 
+    st.markdown("""
+    <div style='margin-top:20px; font-size:0.75rem; color:#64748b; text-align:center;'>
+        💡 <strong>Tip</strong>: Click anywhere on the map or use the search bar 🔍 to jump to any location!
+    </div>
+    """, unsafe_allow_html=True)
+
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Processing Pipeline Execution
+# Processing & Intelligence Pipeline
 # ═══════════════════════════════════════════════════════════════════════════
 
-def get_ml_classifier_instance():
-    """Load fresh classifier instance without Pydantic schema mismatch."""
-    return CropClassifierService()
-
-classifier_svc = get_ml_classifier_instance()
-
+classifier_svc = CropClassifierService()
 
 def execute_spectrafarm_intelligence(lat: float, lon: float, buffer_m: int, lookback_m: int):
     """
@@ -464,35 +520,35 @@ ndvi_val = analysis.ndvi_current or 0.62
 stress_level = analysis.stress_assessment.stress_level.value.capitalize()
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Layout: Left Sidebar Telemetry + Center Spatial Map Panels
+# Main Content: Left Telemetry Sidebar + Center Spatial Map Panels
 # ═══════════════════════════════════════════════════════════════════════════
 
 left_col, right_col = st.columns([1, 3.2])
 
 with left_col:
-    # Telemetry Card
+    # Telemetry Panel
     st.markdown(f"""
-    <div class="dash-box">
-        <div class="box-header">🛰️ SATELLITE SENSORS</div>
-        <div style="font-size:0.8rem; color:#94a3b8; margin-bottom:8px;">
-            <strong>Farm ID:</strong> {analysis.farm.farm_id}<br>
-            <strong>Date:</strong> {analysis.observation_date.strftime('%d %b %Y')} 📅
+    <div class="card-panel">
+        <div class="panel-header">🛰️ 1. SATELLITE SENSORS</div>
+        <div style="font-size:0.8rem; color:#94a3b8; margin-bottom:10px;">
+            <strong>Farm ID:</strong> <span style="color:#00ff88; font-family:'JetBrains Mono';">{analysis.farm.farm_id}</span><br>
+            <strong>Acquisition:</strong> {analysis.observation_date.strftime('%d %b %Y')} 📅
         </div>
         
         <!-- Optical Sensor -->
-        <div class="sensor-card">
-            <div class="sensor-thumb thumb-s2">🌿</div>
+        <div class="sensor-item">
+            <div class="sensor-icon-box box-s2">🌿</div>
             <div>
-                <div style="font-size:0.82rem; font-weight:700; color:#00ff88;">Optical (Sentinel-2)</div>
+                <div style="font-size:0.84rem; font-weight:700; color:#00ff88;">Optical (Sentinel-2)</div>
                 <div style="font-size:0.72rem; color:#94a3b8;">10m MSI · Bands B2, B3, B4, B8</div>
             </div>
         </div>
 
         <!-- Microwave Sensor -->
-        <div class="sensor-card">
-            <div class="sensor-thumb thumb-s1">📡</div>
+        <div class="sensor-item">
+            <div class="sensor-icon-box box-s1">📡</div>
             <div>
-                <div style="font-size:0.82rem; font-weight:700; color:#00e5ff;">Microwave (Sentinel-1)</div>
+                <div style="font-size:0.84rem; font-weight:700; color:#00e5ff;">Microwave (Sentinel-1)</div>
                 <div style="font-size:0.72rem; color:#94a3b8;">C-band SAR · Dual-Pol VV+VH</div>
             </div>
         </div>
@@ -501,21 +557,21 @@ with left_col:
 
     # Pipeline Steps
     st.markdown("""
-    <div class="dash-box">
-        <div class="box-header">⚡ 2. AI ANALYSIS PIPELINE</div>
-        <div class="pipeline-step step-done">✓ Preprocessing & Cloud Mask</div>
-        <div class="pipeline-step step-done">✓ Multi-Sensor Feature Extraction</div>
-        <div class="pipeline-step step-done">✓ Random Forest Crop Classifier</div>
-        <div class="pipeline-step step-done">✓ Moisture Stress Model (0-1)</div>
-        <div class="pipeline-step step-done">✓ Phenology / Growth Stage</div>
-        <div class="pipeline-step step-done">✓ Irrigation Advisory Engine</div>
+    <div class="card-panel">
+        <div class="panel-header">⚡ 2. AI ANALYSIS PIPELINE</div>
+        <div class="step-badge step-active">✓ Preprocessing & Cloud Mask</div>
+        <div class="step-badge step-active">✓ Multi-Sensor Feature Extraction</div>
+        <div class="step-badge step-active">✓ Random Forest Crop Classifier</div>
+        <div class="step-badge step-active">✓ Moisture Stress Model (0-1)</div>
+        <div class="step-badge step-active">✓ Phenology / Growth Stage</div>
+        <div class="step-badge step-active">✓ Irrigation Advisory Engine</div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Output Selectors
+    # Output Layer Selection
     st.markdown("""
-    <div class="dash-box">
-        <div class="box-header">🗺️ 3. SPATIAL MAP VIEWS</div>
+    <div class="card-panel">
+        <div class="panel-header">🗺️ 3. SPATIAL MAP VIEWS</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -528,7 +584,7 @@ with left_col:
 
 
 with right_col:
-    # ── Interactive Spatial Map Tabs ──
+    # Spatial Map View Container
     st.markdown("""
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
         <div style="font-size: 1rem; font-weight: 700; color: #00e5ff; font-family: 'JetBrains Mono', monospace;">
@@ -608,7 +664,6 @@ with right_col:
                 [p_lat, p_lon + d_lon * 0.85],
             ]
 
-            # Field Attributes
             c_name = np.random.choice(CROPS, p=[0.35, 0.2, 0.1, 0.05, 0.1, 0.1, 0.05, 0.05])
             s_level = np.random.choice(list(STRESS_COLORS.keys()), p=[0.4, 0.25, 0.2, 0.1, 0.05])
             g_stage = np.random.choice(GROWTH_STAGES, p=[0.1, 0.35, 0.3, 0.15, 0.1])
@@ -642,9 +697,11 @@ with right_col:
         fill=True,
         fill_color="#00ff88",
         fill_opacity=1.0,
-        tooltip="Selected Farm Location",
+        tooltip="Selected Farm Centroid",
     ).add_to(m)
 
+    # Add Controls: Search Bar Geocoder, Locate Me, Fullscreen, Measure
+    Geocoder(position="topleft").add_to(m)
     LocateControl(auto_start=False, flyTo=True).add_to(m)
     Fullscreen().add_to(m)
     MeasureControl(position="bottomleft").add_to(m)
@@ -696,12 +753,12 @@ with right_col:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Bottom Section: Irrigation Recommendations & Water Balance Gauge
+# Bottom Section: Irrigation Recommendations & Water Balance Speedometer
 # ═══════════════════════════════════════════════════════════════════════════
 
 st.markdown("<br>", unsafe_allow_html=True)
 st.markdown("""
-<div class="box-header" style="font-size:0.95rem; margin-bottom:12px;">
+<div class="panel-header" style="font-size:0.95rem; margin-bottom:12px;">
     💧 IRRIGATION RECOMMENDATIONS & FIELD WATER BALANCE
 </div>
 """, unsafe_allow_html=True)
@@ -710,35 +767,35 @@ irrig_c1, irrig_c2, irrig_c3, irrig_c4 = st.columns(4)
 
 with irrig_c1:
     st.markdown("""
-    <div class="irrig-metric" style="border-left: 4px solid #00e5ff;">
-        <div class="irrig-label">Recommended Action</div>
+    <div class="metric-card-box" style="border-left: 4px solid #00e5ff;">
+        <div class="card-label">Recommended Action</div>
         <div style="font-size:1.05rem; font-weight:700; color:#00ff88; margin-top:6px;">
             💧 Irrigate in next 24-48 hrs
         </div>
-        <div class="irrig-sub">Target: Moderate-to-Severe Stress parcels</div>
+        <div class="card-sub">Target: Moderate-to-Severe Stress parcels</div>
     </div>
     """, unsafe_allow_html=True)
 
 with irrig_c2:
     st.markdown("""
-    <div class="irrig-metric" style="border-left: 4px solid #00ff88;">
-        <div class="irrig-label">Irrigation Depth (mm)</div>
-        <div class="irrig-val">🚰 25 - 35 mm</div>
-        <div class="irrig-sub">Replenishes root-zone soil reservoir</div>
+    <div class="metric-card-box" style="border-left: 4px solid #00ff88;">
+        <div class="card-label">Irrigation Depth (mm)</div>
+        <div class="card-val" style="color:#00ff88;">🚰 25 - 35 mm</div>
+        <div class="card-sub">Replenishes root-zone soil reservoir</div>
     </div>
     """, unsafe_allow_html=True)
 
 with irrig_c3:
     st.markdown("""
-    <div class="irrig-metric" style="border-left: 4px solid #ffaa00;">
-        <div class="irrig-label">Total Water Volume</div>
-        <div class="irrig-val">💧 18,650 m³</div>
-        <div class="irrig-sub">Estimated pump duration: 6-8 hrs</div>
+    <div class="metric-card-box" style="border-left: 4px solid #ffaa00;">
+        <div class="card-label">Total Water Volume</div>
+        <div class="card-val" style="color:#ffaa00;">💧 18,650 m³</div>
+        <div class="card-sub">Estimated pump duration: 6-8 hrs</div>
     </div>
     """, unsafe_allow_html=True)
 
 with irrig_c4:
-    # Water Deficit Semi-Circle Gauge
+    # Water Deficit Semi-Circle Speedometer Gauge
     fig_gauge = go.Figure(go.Indicator(
         mode="gauge+number",
         value=-12,
@@ -757,7 +814,7 @@ with irrig_c4:
     fig_gauge.update_layout(
         height=140,
         margin=dict(l=20, r=20, t=30, b=10),
-        paper_bgcolor="rgba(15, 23, 42, 0.9)",
+        paper_bgcolor="rgba(13, 21, 38, 0.85)",
         font=dict(family="Outfit"),
     )
     st.plotly_chart(fig_gauge, use_container_width=True)
@@ -769,7 +826,7 @@ with irrig_c4:
 
 st.markdown("---")
 st.markdown("""
-<div class="box-header">
+<div class="panel-header">
     🤖 GOOGLE GEMINI AI AGRONOMIST ADVISORY
 </div>
 """, unsafe_allow_html=True)
@@ -784,7 +841,7 @@ with tab_en:
     if "adv_en" in st.session_state:
         adv = st.session_state["adv_en"]
         st.markdown(f"""
-        <div style="background:rgba(15,23,42,0.9); border:1px solid rgba(0,255,136,0.3); border-radius:12px; padding:1.4rem;">
+        <div style="background:rgba(13,21,38,0.9); border:1px solid rgba(0,255,136,0.3); border-radius:12px; padding:1.4rem;">
             <h4 style="color:#00ff88; margin-top:0;">🌾 SpectraFarm Advisory Report</h4>
             {adv.advisory_text}
         </div>
@@ -798,7 +855,7 @@ with tab_hi:
     if "adv_hi" in st.session_state:
         adv = st.session_state["adv_hi"]
         st.markdown(f"""
-        <div style="background:rgba(15,23,42,0.9); border:1px solid rgba(0,255,136,0.3); border-radius:12px; padding:1.4rem;">
+        <div style="background:rgba(13,21,38,0.9); border:1px solid rgba(0,255,136,0.3); border-radius:12px; padding:1.4rem;">
             <h4 style="color:#00ff88; margin-top:0;">🌾 स्पेक्ट्राफार्म कृषि सलाह</h4>
             {adv.advisory_text}
         </div>
@@ -813,7 +870,7 @@ with tab_qa:
 
     if "qa_resp" in st.session_state:
         st.markdown(f"""
-        <div style="background:rgba(15,23,42,0.9); border:1px solid rgba(0,229,255,0.3); border-radius:12px; padding:1.4rem; margin-top:10px;">
+        <div style="background:rgba(13,21,38,0.9); border:1px solid rgba(0,229,255,0.3); border-radius:12px; padding:1.4rem; margin-top:10px;">
             <h4 style="color:#00e5ff; margin-top:0;">🤖 SpectraFarm AI Response</h4>
             {st.session_state['qa_resp']}
         </div>
