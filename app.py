@@ -321,10 +321,39 @@ st.markdown("""
         font-weight: 700 !important;
     }
 
-    /* Radio inputs text contrast */
+    /* Horizontal Segmented Switcher for Map Layers */
+    div[data-testid="stRadio"] > div {
+        background: #f1f5f9 !important;
+        padding: 4px 6px !important;
+        border-radius: 8px !important;
+        border: 1px solid #e2e8f0 !important;
+        display: flex !important;
+        flex-direction: row !important;
+        gap: 8px !important;
+        align-items: center !important;
+    }
+
     div[data-testid="stRadio"] label {
-        color: #1e293b !important;
+        background: transparent !important;
+        padding: 6px 12px !important;
+        border-radius: 6px !important;
+        font-size: 0.78rem !important;
         font-weight: 600 !important;
+        color: #334155 !important;
+        cursor: pointer !important;
+        transition: all 0.2s ease !important;
+        margin: 0 !important;
+    }
+
+    div[data-testid="stRadio"] label:hover {
+        background: #e2e8f0 !important;
+    }
+
+    div[data-testid="stRadio"] label[data-checked="true"] {
+        background: #ffffff !important;
+        color: #0284c7 !important;
+        font-weight: 700 !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.08) !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -548,7 +577,7 @@ with left_col:
     # 2. AI Analysis Pipeline Flow
     st.markdown("""
     <div class="white-card">
-        <div class="card-header-bar">⚡ 2. AI ANALYSIS PIPELINE</div>
+        <div class="card-header-bar">⚡ AI ANALYSIS PIPELINE</div>
         <div class="step-pill"><span>Preprocessing</span><span>✓</span></div>
         <div class="step-pill"><span>Feature Extraction</span><span>✓</span></div>
         <div class="step-pill"><span>Crop Classification Model</span><span>✓</span></div>
@@ -558,34 +587,23 @@ with left_col:
     </div>
     """, unsafe_allow_html=True)
 
-    # 3. Layer Selector
-    st.markdown("""
-    <div class="white-card">
-        <div class="card-header-bar">🗺️ 3. SPATIAL OUTPUT VIEW</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    map_view = st.radio(
-        "Active Spatial Layer:",
-        ["🌾 Crop Type Classification", "💧 Moisture Stress Index", "🌱 Phenology / Growth Stage"],
-        index=0,
-        label_visibility="collapsed",
-    )
-
 
 with right_col:
-    # ── Map Header Bar with Model Accuracy Tag ──
-    header_col1, header_col2 = st.columns([2, 1])
+    # ── Top Horizontal Segmented Layer Switcher Bar ──
+    header_col1, header_col2 = st.columns([3, 1])
     with header_col1:
-        st.markdown(f"""
-        <div style="font-size:0.95rem; font-weight:700; font-family:'JetBrains Mono'; color:#0284c7; margin-bottom:8px;">
-            🛰️ SPATIAL SATELLITE FIELD PARCEL CLASSIFICATION — {map_view.upper()}
-        </div>
-        """, unsafe_allow_html=True)
+        map_view = st.radio(
+            "Select Map Layer:",
+            ["🌾 Crop Type Classification", "💧 Moisture Stress Index", "🌱 Phenology / Growth Stage"],
+            index=0,
+            horizontal=True,
+            label_visibility="collapsed",
+            key="top_map_layer_selector",
+        )
     with header_col2:
         st.markdown("""
-        <div style="text-align:right; font-size:0.82rem; font-family:'JetBrains Mono'; color:#059669; font-weight:700;">
-            Overall Model Accuracy: 92.4%
+        <div style="text-align:right; font-size:0.82rem; font-family:'JetBrains Mono'; color:#059669; font-weight:700; padding-top:6px;">
+            Overall Accuracy: 92.4%
         </div>
         """, unsafe_allow_html=True)
 
