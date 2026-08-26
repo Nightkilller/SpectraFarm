@@ -6,16 +6,18 @@ AgriN combines **satellite remote sensing (Sentinel-2 optical + Sentinel-1 SAR v
 
 ---
 
-## Current Status: Phase 5 Complete (Ground Truth Infrastructure) ✅
+## Current Status: Phase 5 Complete (Ground Truth & External Dataset Infrastructure) ✅
 
 - **Google Earth Engine Integration**: Connected and operational with Google Cloud Project `agrin-506618`.
 - **Pilot Region Foundation**: **Sehore Pilot Test AOI, Madhya Pradesh, India** (`23.20°N, 77.08°E`).
 - **Sentinel-2 Optical Pipeline (Phase 1 & 2)**: Real multi-temporal NDVI trajectories (22 canonical daily observations).
 - **Sentinel-1 SAR Pipeline (Phase 3)**: Real multi-temporal Synthetic Aperture Radar backscatter (`VV`, `VH`, `VV/VH` linear ratio) from `COPERNICUS/S1_GRD` (14 canonical daily observations).
 - **Multi-Sensor Fusion (Phase 4)**: Temporally fused feature dataset combining optical greenness and radar backscatter (9 `FUSED_PAIR`, 5 `SAR_STANDALONE` observations).
-- **Ground Truth Ingestion Infrastructure (Phase 5)**: Cloud-ready validation pipeline with spatial bounding, duplicate coordinate detection ($<15\text{m}$ tolerance), and spatial blocking for spatial k-fold cross-validation.
-- **Target Cloud Data Warehouse**: Google BigQuery (`agrin-506618.agrin_db.ground_truth_labels`) and Google Cloud Storage (`gs://agrin-ground-truth-506618/`).
-- **Data Integrity**: Zero ground-truth fabrication. System status: `WAITING_FOR_DATA` (infrastructure ready for real survey datasets).
+- **Ground Truth Ingestion & Validation Infrastructure (Phase 5)**: Cloud-ready validation pipeline with spatial bounding, duplicate coordinate detection ($<15\text{m}$ tolerance), spatial blocking, and explicit provenance tracking.
+- **External Public Dataset Prepared**: **AgriFieldNet India Challenge Dataset** (Radiant Earth Foundation / IDinsight, DOI: `10.34911/rdnt.wu92p1`, License: `CC-BY-4.0`, 7,081 fields across UP, Rajasthan, Odisha, Bihar).
+- **Data Integrity & Provenance**:
+  - **Sehore Ground Truth**: `0 records` (`DATA_NOT_AVAILABLE` — zero fabricated records).
+  - **External Benchmark Data**: `EXTERNAL_PUBLIC_DATASET` (prepared for Colab/Vertex AI experimentation; explicitly NOT Sehore ground truth).
 
 ---
 
@@ -48,7 +50,7 @@ AGRIN_MODE=live
 
 ## Verification Pipelines
 
-### 1. Ground Truth Validation Pipeline (Phase 5)
+### 1. Ground Truth & External Dataset Ingestion Pipeline (Phase 5)
 ```bash
 python scripts/validate_ground_truth.py
 ```
@@ -72,7 +74,7 @@ python scripts/test_sehore_timeseries.py
 
 ## Test Suite
 
-Run the full automated offline test suite (75 tests passing):
+Run the full automated offline test suite (77 tests passing):
 
 ```bash
 pytest tests/ -v
@@ -91,13 +93,14 @@ agriN/
 ├── data/
 │   ├── ground_truth/        # Ground-truth templates & documentation
 │   │   ├── README.md        # Ground truth policies & BigQuery specification
+│   │   ├── EXTERNAL_DATASETS.md  # AgriFieldNet provenance & schema mapping
 │   │   └── ground_truth_template.csv  # Field survey ingestion header template
 │   └── processed/sehore/    # Processed satellite datasets (NDVI, SAR, Fused)
 ├── src/
 │   ├── config/              # Central configuration loader
 │   ├── data/                # Schemas & ground-truth validation logic
 │   │   ├── schemas.py       # Pydantic models (GroundTruthRecord, FusedPair, etc.)
-│   │   └── ground_truth_validator.py  # Spatial checks, deduplication & blocking
+│   │   └── ground_truth_validator.py  # Spatial checks, deduplication, blocking & provenance
 │   ├── geospatial/
 │   │   ├── gee_client.py    # Earth Engine initialization & collection filtering
 │   │   ├── indices.py       # Reusable optical indices (NDVI, NDWI)
@@ -112,12 +115,12 @@ agriN/
 │   ├── test_sehore_timeseries.py  # Phase 2 multi-temporal optical test
 │   ├── test_sehore_sentinel1.py   # Phase 3 multi-temporal SAR radar test
 │   ├── test_sehore_fusion.py      # Phase 4 optical + SAR multi-sensor fusion test
-│   └── validate_ground_truth.py   # Phase 5 ground truth validation test
+│   └── validate_ground_truth.py   # Phase 5 ground truth & external dataset test
 ├── docs/
 │   ├── architecture.md      # System architecture & service boundaries
 │   ├── assumptions.md       # Assumptions & operational limits
 │   └── methodology.md       # Scientific remote sensing & index formulations
-├── tests/                   # Automated pytest suite (75 tests)
+├── tests/                   # Automated pytest suite (77 tests)
 ├── .env.example
 ├── requirements.txt
 └── README.md

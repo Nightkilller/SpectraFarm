@@ -183,3 +183,37 @@ class TestGroundTruthValidation:
         assert "longitude" in col_names
         assert "crop_type" in col_names
         assert "spatial_block_id" in col_names
+
+    def test_agrifieldnet_provenance_and_external_classification(self):
+        from src.data.ground_truth_validator import create_agrifieldnet_provenance
+
+        prov = create_agrifieldnet_provenance()
+        assert prov.is_sehore_ground_truth is False
+        assert "AgriFieldNet" in prov.dataset_name
+        assert prov.license == "CC-BY-4.0"
+
+        # Synthetic unit-test fixture modeling external UP/Bihar field records
+        df_ext = pd.DataFrame([
+            {
+                "field_id": "AFN_001",
+                "latitude": 26.8500,  # Uttar Pradesh
+                "longitude": 80.9500,
+                "crop_type": "Wheat",
+                "season": "Rabi",
+                "reference_date": "2022-03-15",
+                "source": "IDinsight Data on Demand / Radiant Earth (AgriFieldNet)",
+                "verification_method": "In-Situ GPS Field Survey",
+                "confidence": 1.0,
+            }
+        ])
+
+        records, report = validate_ground_truth_dataframe(
+            df_ext,
+            dataset_name="AgriFieldNet External Test",
+            provenance=prov,
+        )
+
+        assert report.validation_status == GroundTruthDatasetStatus.EXTERNAL_PUBLIC_DATASET
+        assert report.provenance is not None
+        assert report.provenance.is_sehore_ground_truth is False
+        assert report.valid_records_count == 1

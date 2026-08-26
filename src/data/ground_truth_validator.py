@@ -30,6 +30,7 @@ import pandas as pd
 
 from src.data.schemas import (
     DataSource,
+    DatasetProvenance,
     GroundTruthDataset,
     GroundTruthDatasetStatus,
     GroundTruthRecord,
@@ -49,6 +50,19 @@ REQUIRED_COLUMNS = [
     "source",
     "verification_method",
 ]
+
+
+def create_agrifieldnet_provenance() -> DatasetProvenance:
+    """Create verified provenance metadata for the public AgriFieldNet India Challenge dataset."""
+    return DatasetProvenance(
+        dataset_name="AgriFieldNet Competition Dataset",
+        dataset_version="1.0 (DOI: 10.34911/rdnt.wu92p1)",
+        source_url="https://source.coop/radiantearth/agrifieldnet-competition",
+        license="CC-BY-4.0",
+        geographic_region="Northern India (Uttar Pradesh, Rajasthan, Odisha, Bihar) — NOT Sehore MP",
+        is_sehore_ground_truth=False,
+        label_collection_method="In-situ ground surveys collected by IDinsight Data on Demand (ECAAS initiative)",
+    )
 
 
 def haversine_distance_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -89,6 +103,7 @@ def validate_ground_truth_dataframe(
     dataset_name: str = "Ground Truth Dataset",
     expected_bbox: Optional[dict[str, float]] = None,
     duplicate_tolerance_meters: float = 15.0,
+    provenance: Optional[DatasetProvenance] = None,
 ) -> tuple[list[GroundTruthRecord], GroundTruthValidationReport]:
     """
     Perform a strict validation audit on a candidate ground-truth DataFrame.
@@ -101,6 +116,7 @@ def validate_ground_truth_dataframe(
     if df.empty:
         report = GroundTruthValidationReport(
             dataset_name=dataset_name,
+            provenance=provenance,
             total_records=0,
             valid_records_count=0,
             rejected_records_count=0,
@@ -286,12 +302,18 @@ def validate_ground_truth_dataframe(
     elif requires_review_count > 0 or duplicate_loc_count > 0 or duplicate_field_ids_count > 0:
         val_status = GroundTruthDatasetStatus.REQUIRES_REVIEW
     elif valid_count > 0:
-        val_status = GroundTruthDatasetStatus.VALIDATED
+        if provenance and not provenance.is_sehore_ground_truth:
+            val_status = GroundTruthDatasetStatus.EXTERNAL_PUBLIC_DATASET
+        elif provenance and provenance.is_sehore_ground_truth:
+            val_status = GroundTruthDatasetStatus.SEHORE_GROUND_TRUTH
+        else:
+            val_status = GroundTruthDatasetStatus.VALIDATED
     else:
         val_status = GroundTruthDatasetStatus.DATA_NOT_AVAILABLE
 
     report = GroundTruthValidationReport(
         dataset_name=dataset_name,
+        provenance=provenance,
         total_records=len(df),
         valid_records_count=valid_count,
         rejected_records_count=rejected_count,

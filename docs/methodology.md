@@ -90,33 +90,39 @@ Canonical Sentinel-2 Optical (NDVI)        Canonical Sentinel-1 SAR (VV, VH, VV/
 
 ---
 
-## 6. Ground Truth Validation & Ingestion Infrastructure (Phase 5)
+## 6. Ground Truth Validation & External Dataset Architecture (Phase 5)
 
 AgriN enforces a strict ground-truth ingestion gate to ensure that machine learning models (Phase 6) are trained exclusively on validated, non-fabricated reference data.
 
 ```
-Authoritative Field Survey / Extension Data (CSV)
-                      │
-                      ▼
-       ┌──────────────────────────────────────────────┐
-       │     Ground Truth Validator (Phase 5)         │
-       ├──────────────────────────────────────────────┤
-       │ 1. Schema & Null Completeness Check          │
-       │ 2. Spatial Bounding Box Filter               │
-       │ 3. Spatial Duplicate Detection (<15m delta)  │
-       │ 4. Class & Season Distribution Audit         │
-       │ 5. Spatial Block ID Assignment (Grid Binning)│
-       └──────────────────────────────────────────────┘
-                      │
-                      ▼
-         Google Cloud Target Architecture
-  ┌─────────────────────────────────────────────────┐
-  │ Cloud Storage: gs://agrin-ground-truth-506618/ │
-  │ BigQuery:      agrin_db.ground_truth_labels     │
-  └─────────────────────────────────────────────────┘
+Authoritative Survey CSV / External Dataset
+                     │
+                     ▼
+      ┌──────────────────────────────────────────────┐
+      │     Ground Truth Validator (Phase 5)         │
+      ├──────────────────────────────────────────────┤
+      │ 1. Schema & Null Completeness Check          │
+      │ 2. Spatial Bounding Box Filter               │
+      │ 3. Spatial Duplicate Detection (<15m delta)  │
+      │ 4. Class & Season Distribution Audit         │
+      │ 5. Spatial Block ID Assignment (Grid Binning)│
+      │ 6. Provenance & Dataset Classification Audit │
+      └──────────────────────────────────────────────┘
+                     │
+                     ▼
+        Google Cloud Target Architecture
+ ┌──────────────────────────────────────────────────┐
+ │ Cloud Storage: gs://agrin-ground-truth-506618/  │
+ │ BigQuery:      agrin-506618.agrin_db.labels      │
+ └──────────────────────────────────────────────────┘
 ```
 
-### 6.1 Scientific Principles:
-1. **Zero Data Fabrication**: No synthetic coordinates, randomly generated crop labels, or artificial field boundaries.
-2. **Spatial Autocorrelation Protection**: Every field point is assigned a `spatial_block_id` to enforce spatial k-fold cross-validation, ensuring that training and test fields are spatially segregated.
-3. **Current Status**: **`WAITING_FOR_DATA`**. Validation infrastructure is operational; waiting for genuine external survey records.
+### 6.1 Status Classifications:
+1. **`SEHORE_GROUND_TRUTH`**: In-situ ground truth collected within Sehore District, MP. (Currently: **0 records — `DATA_NOT_AVAILABLE`**).
+2. **`EXTERNAL_PUBLIC_DATASET`**: Public benchmark reference data (e.g. **AgriFieldNet India Challenge**, DOI: `10.34911/rdnt.wu92p1`).
+
+### 6.2 Strict Geographic Limitation Notice:
+- **AgriFieldNet India covers**: Uttar Pradesh, Rajasthan, Odisha, Bihar.
+- **AgriFieldNet does NOT cover**: Sehore District, Madhya Pradesh.
+- AgriN **does NOT** perform spatial joins between AgriFieldNet labels and Sehore satellite imagery.
+- AgriFieldNet serves solely as an external public benchmark for software validation, feature pipeline development, and algorithmic experimentation in Google Colab / Vertex AI.
