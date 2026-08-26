@@ -26,6 +26,12 @@ from pydantic import BaseModel, Field, field_validator
 class CropType(str, Enum):
     WHEAT = "wheat"
     RICE = "rice"
+    MUSTARD = "mustard"
+    SUGARCANE = "sugarcane"
+    POTATO = "potato"
+    LENTIL = "lentil"
+    MAIZE = "maize"
+    GRAM = "gram"
     OTHER = "other"
 
 

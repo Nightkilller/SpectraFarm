@@ -40,10 +40,23 @@ logger = logging.getLogger(__name__)
 MODEL_DIR = MODELS_DIR / "crop_classifier"
 MODEL_PATH = MODEL_DIR / "random_forest.joblib"
 FEATURE_NAMES_PATH = MODEL_DIR / "feature_names.joblib"
+LABEL_ENCODER_PATH = MODEL_DIR / "label_encoder.joblib"
 
-# Mapping from class index to CropType
-CLASS_MAP = {0: CropType.WHEAT, 1: CropType.RICE, 2: CropType.OTHER}
-LABEL_MAP = {"wheat": 0, "rice": 1, "other": 2}
+# Default class mapping
+CLASS_MAP = {
+    0: CropType.GRAM,
+    1: CropType.LENTIL,
+    2: CropType.MAIZE,
+    3: CropType.MUSTARD,
+    4: CropType.POTATO,
+    5: CropType.RICE,
+    6: CropType.SUGARCANE,
+    7: CropType.WHEAT,
+}
+LABEL_MAP = {
+    "wheat": 7, "rice": 5, "mustard": 3, "sugarcane": 6,
+    "potato": 4, "lentil": 1, "maize": 2, "gram": 0, "other": 7
+}
 
 
 class CropClassifierService:
@@ -52,7 +65,9 @@ class CropClassifierService:
     def __init__(self) -> None:
         self.model: Optional[RandomForestClassifier] = None
         self.feature_names: list[str] = []
-        self.model_version = "rf_v0.1"
+        self.label_encoder = None
+        self.class_map = CLASS_MAP.copy()
+        self.model_version = "rf_v1.0_colab"
         self._load_model()
 
     def _load_model(self) -> None:
@@ -61,6 +76,17 @@ class CropClassifierService:
             try:
                 self.model = joblib.load(MODEL_PATH)
                 self.feature_names = joblib.load(FEATURE_NAMES_PATH)
+
+                if LABEL_ENCODER_PATH.exists():
+                    self.label_encoder = joblib.load(LABEL_ENCODER_PATH)
+                    # Dynamically map label encoder classes to CropType
+                    for idx, cname in enumerate(self.label_encoder.classes_):
+                        clean_name = str(cname).lower()
+                        try:
+                            self.class_map[idx] = CropType(clean_name)
+                        except ValueError:
+                            self.class_map[idx] = CropType.OTHER
+
                 logger.info(f"Loaded crop classifier from {MODEL_PATH}")
             except Exception as e:
                 logger.warning(f"Failed to load model: {e}")
@@ -147,7 +173,7 @@ class CropClassifierService:
         prediction = self.model.predict(X)[0]
         probabilities = self.model.predict_proba(X)[0]
 
-        predicted_crop = CLASS_MAP.get(prediction, CropType.OTHER)
+        predicted_crop = self.class_map.get(prediction, CropType.OTHER)
         confidence = float(probabilities[prediction])
 
         # Feature importance
