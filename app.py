@@ -468,30 +468,14 @@ with left_col:
     st.markdown(f"""
     <div class="saas-card">
         <div class="card-title-bar">
-            <span>🛰️ 1. SATELLITE SENSORS</span>
+            <span>🛰️ FARM TELEMETRY</span>
             <span style="color:#10b981;">ONLINE</span>
         </div>
-        <div style="font-size:0.8rem; color:#94a3b8; margin-bottom:12px;">
+        <div style="font-size:0.82rem; color:#cbd5e1; line-height:1.7;">
             <strong>Farm ID:</strong> <span style="color:#38bdf8; font-family:'JetBrains Mono'; font-weight:700;">{analysis.farm.farm_id}</span><br>
-            <strong>Date:</strong> {analysis.observation_date.strftime('%d %b %Y')} 📅
-        </div>
-        
-        <!-- Optical Sensor -->
-        <div class="sensor-row">
-            <div class="sensor-icon">🌿</div>
-            <div>
-                <div class="sensor-info-title">Optical (Sentinel-2)</div>
-                <div class="sensor-info-sub">10m MSI · Bands B2, B3, B4, B8</div>
-            </div>
-        </div>
-
-        <!-- Microwave Sensor -->
-        <div class="sensor-row">
-            <div class="sensor-icon">📡</div>
-            <div>
-                <div class="sensor-info-title">Microwave (Sentinel-1)</div>
-                <div class="sensor-info-sub">C-band SAR · Dual-Pol VV+VH</div>
-            </div>
+            <strong>Acquisition:</strong> {analysis.observation_date.strftime('%d %b %Y')} 📅<br>
+            <strong>Coordinates:</strong> <span style="font-family:'JetBrains Mono'; font-size:0.78rem; color:#94a3b8;">{target_lat:.4f}°N, {target_lon:.4f}°E</span><br>
+            <strong>Monitored Area:</strong> {analysis.farm.area_ha} ha
         </div>
     </div>
     """, unsafe_allow_html=True)
