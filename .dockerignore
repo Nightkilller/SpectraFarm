@@ -1,0 +1,38 @@
+# Virtual environment
+venv/
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Local environment
+.env
+.env.local
+
+# Documentation (not needed in container)
+docs/
+*.md
+!README.md
+
+# Test artifacts
+tests/
+notebooks/
+
+# Data files (model artifacts ARE included)
+data/processed/
+data/ground_truth/
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -92,6 +92,30 @@ def get_sehore_aoi(use_buffer: bool = True) -> Any:
         ])
 
 
+def get_dynamic_aoi(lat: float, lon: float, buffer_meters: int = 1000) -> Any:
+    """
+    Construct an Earth Engine AOI geometry from any user-provided coordinates.
+
+    This allows the dashboard to query satellite data for any location entered
+    by the user, not just the hardcoded Sehore pilot region.
+
+    Args:
+        lat: Latitude in decimal degrees (WGS84).
+        lon: Longitude in decimal degrees (WGS84).
+        buffer_meters: Buffer radius around the point in meters.
+
+    Returns:
+        ee.Geometry: Buffered point geometry for the given coordinates.
+    """
+    ee = get_ee_module()
+    if not ee:
+        raise RuntimeError("Earth Engine is not initialized.")
+
+    point = ee.Geometry.Point([lon, lat])
+    return point.buffer(buffer_meters).bounds()
+
+
+
 def query_sentinel2_imagery(
     aoi: Any,
     start_date: str | date,
