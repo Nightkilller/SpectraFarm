@@ -435,11 +435,15 @@ def execute_spectrafarm_intelligence(lat: float, lon: float, buffer_m: int, look
     # 4. Stress Assessment
     stress = assess_stress(s2_obs, farm.farm_id)
 
-    # 5. Build Analysis Object safely
+    # 5. Build Analysis Object safely with model_validate to prevent reload mismatch
+    farm_dict = farm.model_dump() if hasattr(farm, "model_dump") else farm
+    crop_dict = crop_pred.model_dump() if hasattr(crop_pred, "model_dump") else crop_pred
+    stress_dict = stress.model_dump() if hasattr(stress, "model_dump") else stress
+
     analysis = FarmAnalysis(
-        farm=farm,
-        crop_prediction=crop_pred,
-        stress_assessment=stress,
+        farm=Farm.model_validate(farm_dict),
+        crop_prediction=CropPrediction.model_validate(crop_dict),
+        stress_assessment=StressAssessment.model_validate(stress_dict),
         recent_observations=all_obs,
         ndvi_current=s2_obs[-1].ndvi if s2_obs else 0.62,
         ndvi_previous=s2_obs[-2].ndvi if len(s2_obs) >= 2 else 0.58,
