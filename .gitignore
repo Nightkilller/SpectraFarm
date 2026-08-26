@@ -1,5 +1,14 @@
-# Environment
+# Environment & Secrets — NEVER commit these
 .env
+.env.local
+.env.production
+.env.*.local
+*.pem
+*.key
+*.p12
+*.json.key
+credentials.json
+service-account*.json
 venv/
 .venv/
 env/
