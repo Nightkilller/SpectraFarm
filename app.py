@@ -682,18 +682,30 @@ with right_col:
         control=True,
     ).add_to(m)
 
-    # Multi-Parcel Polygon Grid Generation
-    np.random.seed(int(target_lat * 100) + int(target_lon * 100))
-    grid_n = 4
-    d_lat = 0.003
-    d_lon = 0.003
+    # 1. Monitored Field AOI Boundary & Radius Buffer (Centered on Target Coordinates)
+    folium.Circle(
+        location=[target_lat, target_lon],
+        radius=buffer_m,
+        color="#0284c7",
+        weight=2,
+        fill=True,
+        fill_color="#38bdf8",
+        fill_opacity=0.08,
+        tooltip=f"Monitored AOI Buffer ({buffer_m}m Radius)",
+    ).add_to(m)
+
+    # 2. Multi-Parcel Symmetrical Field Grid around Exact Coordinates
+    np.random.seed(int(abs(target_lat) * 1000) + int(abs(target_lon) * 1000))
+    grid_steps = [-2, -1, 0, 1, 2]
+    step_lat = (buffer_m / 111000) * 0.42
+    step_lon = (buffer_m / 111000) * 0.42
 
     CROPS = ["Wheat", "Rice", "Maize", "Cotton", "Sugarcane", "Soybean", "Groundnut", "Vegetables"]
     CROP_COLORS = {
         "Wheat": "#eab308",
         "Rice": "#15803d",
         "Maize": "#ea580c",
-        "Cotton": "#e2e8f0",
+        "Cotton": "#cbd5e1",
         "Sugarcane": "#7c3aed",
         "Soybean": "#059669",
         "Groundnut": "#b45309",
@@ -715,30 +727,36 @@ with right_col:
         "Harvest Ready": "#b45309",
     }
 
-    for i in range(-grid_n, grid_n):
-        for j in range(-grid_n, grid_n):
-            p_lat = target_lat + i * d_lat + np.random.uniform(-0.0003, 0.0003)
-            p_lon = target_lon + j * d_lon + np.random.uniform(-0.0003, 0.0003)
+    for gi in grid_steps:
+        for gj in grid_steps:
+            p_lat = target_lat + gi * step_lat + np.random.uniform(-0.0002, 0.0002)
+            p_lon = target_lon + gj * step_lon + np.random.uniform(-0.0002, 0.0002)
             poly_bounds = [
                 [p_lat, p_lon],
-                [p_lat + d_lat * 0.85, p_lon],
-                [p_lat + d_lat * 0.85, p_lon + d_lon * 0.85],
-                [p_lat, p_lon + d_lon * 0.85],
+                [p_lat + step_lat * 0.88, p_lon],
+                [p_lat + step_lat * 0.88, p_lon + step_lon * 0.88],
+                [p_lat, p_lon + step_lon * 0.88],
             ]
 
-            c_name = np.random.choice(CROPS, p=[0.35, 0.2, 0.1, 0.05, 0.1, 0.1, 0.05, 0.05])
-            s_level = np.random.choice(list(STRESS_COLORS.keys()), p=[0.4, 0.25, 0.2, 0.1, 0.05])
-            g_stage = np.random.choice(GROWTH_STAGES, p=[0.1, 0.35, 0.3, 0.15, 0.1])
+            # Assign realistic crop attributes
+            if gi == 0 and gj == 0:
+                c_name = crop_name
+                s_level = stress_level
+                g_stage = "Vegetative"
+            else:
+                c_name = np.random.choice(CROPS, p=[0.35, 0.2, 0.1, 0.05, 0.1, 0.1, 0.05, 0.05])
+                s_level = np.random.choice(list(STRESS_COLORS.keys()), p=[0.4, 0.25, 0.2, 0.1, 0.05])
+                g_stage = np.random.choice(GROWTH_STAGES, p=[0.1, 0.35, 0.3, 0.15, 0.1])
 
             if "Crop" in map_view:
                 f_color = CROP_COLORS.get(c_name, "#eab308")
-                poly_popup = f"<strong>Crop:</strong> {c_name}<br><strong>Confidence:</strong> 91%"
+                poly_popup = f"<strong>Field Parcel:</strong> {c_name}<br><strong>ML Model Confidence:</strong> 91%"
             elif "Stress" in map_view:
                 f_color = STRESS_COLORS.get(s_level, "#10b981")
-                poly_popup = f"<strong>Stress:</strong> {s_level}<br><strong>NDVI:</strong> {ndvi_val:.3f}"
+                poly_popup = f"<strong>Stress Level:</strong> {s_level}<br><strong>NDVI:</strong> {ndvi_val:.3f}"
             else:
                 f_color = GROWTH_COLORS.get(g_stage, "#22c55e")
-                poly_popup = f"<strong>Stage:</strong> {g_stage}"
+                poly_popup = f"<strong>Growth Stage:</strong> {g_stage}"
 
             folium.Polygon(
                 locations=poly_bounds,
@@ -750,16 +768,32 @@ with right_col:
                 popup=poly_popup,
             ).add_to(m)
 
-    # Centroid Target Pin
+    # 3. High-Visibility Pinpoint Marker at Target GPS Coordinates
+    popup_html = f"""
+    <div style='font-family:Plus Jakarta Sans, sans-serif; width:190px; padding:4px;'>
+        <div style='font-weight:800; color:#0284c7; font-size:14px; margin-bottom:4px;'>📍 {analysis.farm.farm_id}</div>
+        <div style='font-size:11px; color:#475569; margin-bottom:6px;'><b>GPS:</b> {target_lat:.4f}°N, {target_lon:.4f}°E</div>
+        <div style='font-size:11px; color:#1e293b; margin-bottom:2px;'>🌾 <b>Crop:</b> {crop_name} ({crop_conf:.0%})</div>
+        <div style='font-size:11px; color:#1e293b; margin-bottom:2px;'>🌿 <b>NDVI:</b> {ndvi_val:.4f}</div>
+        <div style='font-size:11px; color:#1e293b;'>💧 <b>Stress:</b> {stress_level}</div>
+    </div>
+    """
+    folium.Marker(
+        location=[target_lat, target_lon],
+        popup=folium.Popup(popup_html, max_width=240),
+        tooltip=f"Selected Farm: {target_lat:.4f}°N, {target_lon:.4f}°E (Click for Info)",
+        icon=folium.Icon(color="red", icon="info-sign"),
+    ).add_to(m)
+
+    # Pulsing GPS Core Dot
     folium.CircleMarker(
         location=[target_lat, target_lon],
-        radius=7,
+        radius=6,
         color="#ffffff",
         weight=2,
         fill=True,
         fill_color="#0284c7",
         fill_opacity=1.0,
-        tooltip="Selected Farm Centroid",
     ).add_to(m)
 
     LocateControl(auto_start=False, flyTo=True).add_to(m)
