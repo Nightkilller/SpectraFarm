@@ -22,9 +22,10 @@ dist/
 build/
 *.egg
 
-# IDE
+# IDE & Agent Tools
 .vscode/
 .idea/
+.agents/
 *.swp
 *.swo
 *~
