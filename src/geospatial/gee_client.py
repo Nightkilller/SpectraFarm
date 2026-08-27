@@ -55,6 +55,14 @@ def init_earth_engine(project: Optional[str] = None) -> bool:
         return False
 
 
+def is_gee_available() -> bool:
+    """Return True if Earth Engine is initialized and available."""
+    global _gee_initialized
+    if _gee_initialized and _ee is not None:
+        return True
+    return init_earth_engine()
+
+
 def get_ee_module():
     """Return the initialized ee module or None."""
     if not _gee_initialized:

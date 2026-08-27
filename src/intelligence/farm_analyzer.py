@@ -33,10 +33,11 @@ from src.features.feature_extraction import (
     extract_sar_features,
 )
 from src.geospatial.gee_client import (
-    get_sentinel1_observations,
-    get_sentinel2_observations,
     is_gee_available,
+    get_dynamic_aoi,
 )
+from src.geospatial.timeseries import extract_ndvi_timeseries
+from src.geospatial.sar import extract_sar_timeseries
 from src.intelligence.stress_analysis import assess_stress
 from src.ml.crop_classifier import CropClassifierService
 
@@ -74,7 +75,11 @@ class FarmAnalyzer:
         use_live = self.settings.mode == "live" and is_gee_available()
 
         if use_live:
-            return self._analyze_live(farm)
+            try:
+                return self._analyze_live(farm)
+            except Exception as e:
+                logger.warning(f"Live analysis failed ({e}) — falling back to demo mode.")
+                return self._analyze_demo(farm)
         else:
             return self._analyze_demo(farm)
 
@@ -85,21 +90,46 @@ class FarmAnalyzer:
         end_date = date.today()
         start_date = end_date - timedelta(days=30 * self.settings.lookback_months)
 
-        # 1. Get satellite observations
-        s2_obs = get_sentinel2_observations(
-            bbox=farm.bbox,
+        aoi = get_dynamic_aoi(farm.latitude, farm.longitude)
+        cloud_max = self.settings.sentinel2_config.get("cloud_cover_max", 20.0)
+
+        # 1. Extract real Sentinel-2 and Sentinel-1 time series
+        ndvi_ts = extract_ndvi_timeseries(
+            aoi=aoi,
             start_date=start_date,
             end_date=end_date,
-            farm_id=farm.farm_id,
-            max_cloud_cover=self.settings.sentinel2_config["cloud_cover_max"],
+            max_cloud_percentage=cloud_max,
+        )
+        sar_ts = extract_sar_timeseries(
+            aoi=aoi,
+            start_date=start_date,
+            end_date=end_date,
         )
 
-        s1_obs = get_sentinel1_observations(
-            bbox=farm.bbox,
-            start_date=start_date,
-            end_date=end_date,
-            farm_id=farm.farm_id,
-        )
+        s2_obs = [
+            SatelliteObservation(
+                observation_date=pt.observation_date,
+                satellite="Sentinel-2",
+                farm_id=farm.farm_id,
+                ndvi=pt.mean_ndvi,
+                cloud_cover=pt.cloud_percentage,
+                data_source=DataSource.LIVE,
+            )
+            for pt in ndvi_ts.points
+        ]
+
+        s1_obs = [
+            SatelliteObservation(
+                observation_date=pt.observation_date,
+                satellite="Sentinel-1",
+                farm_id=farm.farm_id,
+                vv=pt.mean_vv,
+                vh=pt.mean_vh,
+                vh_vv_ratio=pt.mean_vv_vh_ratio,
+                data_source=DataSource.LIVE,
+            )
+            for pt in sar_ts.points
+        ]
 
         all_observations = s2_obs + s1_obs
 
