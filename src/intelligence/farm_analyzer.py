@@ -164,6 +164,8 @@ class FarmAnalyzer:
             ndvi_current=ndvi_current,
             ndvi_previous=ndvi_previous,
             ndvi_trend=ndvi_trend,
+            vci_percentage=stress.vci_percentage,
+            vci_stress_level=stress.vci_stress_level,
             observation_date=s2_obs[-1].observation_date if s2_obs else None,
             data_source=DataSource.LIVE,
         )
@@ -198,6 +200,8 @@ class FarmAnalyzer:
             ndvi_current=stress.ndvi_current,
             ndvi_previous=stress.ndvi_previous,
             ndvi_trend=stress.trend,
+            vci_percentage=stress.vci_percentage,
+            vci_stress_level=stress.vci_stress_level,
             observation_date=s2_obs[-1].observation_date if s2_obs else date.today(),
             data_source=DataSource.DEMO,
         )

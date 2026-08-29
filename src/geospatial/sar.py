@@ -145,6 +145,10 @@ def extract_sar_timeseries(
             data_source=DataSource.LIVE,
         )
 
+    # Load ESA WorldCover 10m Cropland mask (value 40 = Cropland)
+    worldcover = ee.ImageCollection("ESA/WorldCover/v200").first()
+    cropland_mask = worldcover.select("Map").eq(40)
+
     def _compute_sar_stats_per_image(img):
         with_features = calculate_sar_features(img)
 
@@ -155,7 +159,7 @@ def extract_sar_timeseries(
             .combine(ee.Reducer.stdDev(), "", True)
         )
 
-        bands_to_reduce = with_features.select(["VV", "VH", "VV_VH_ratio", "VH_VV_ratio", "VV_minus_VH"])
+        bands_to_reduce = with_features.select(["VV", "VH", "VV_VH_ratio", "VH_VV_ratio", "VV_minus_VH"]).updateMask(cropland_mask)
 
         stats = bands_to_reduce.reduceRegion(
             reducer=reducer,

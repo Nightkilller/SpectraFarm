@@ -1,34 +1,92 @@
 # =============================================================================
-# AgriN — Crop Configuration
+# SpectraFarm — Crop Configuration (Multi-State: MP, Rajasthan, UP, Bihar)
 # =============================================================================
 
-# MVP crop classes for classification
+# Full 10-class crop classification system
 classes:
   - id: "wheat"
     label: "Wheat"
     label_hi: "गेहूँ"
-    color: "#f4a460"   # Sandy brown
-    class_index: 0
+    color: "#eab308"
+    class_index: 9
+    season: "rabi"
 
   - id: "rice"
     label: "Rice"
     label_hi: "चावल"
-    color: "#2e8b57"   # Sea green
+    color: "#15803d"
+    class_index: 6
+    season: "kharif"
+
+  - id: "soybean"
+    label: "Soybean"
+    label_hi: "सोयाबीन"
+    color: "#059669"
+    class_index: 7
+    season: "kharif"
+
+  - id: "mustard"
+    label: "Mustard"
+    label_hi: "सरसों"
+    color: "#facc15"
+    class_index: 4
+    season: "rabi"
+
+  - id: "cotton"
+    label: "Cotton"
+    label_hi: "कपास"
+    color: "#cbd5e1"
+    class_index: 0
+    season: "kharif"
+
+  - id: "sugarcane"
+    label: "Sugarcane"
+    label_hi: "गन्ना"
+    color: "#7c3aed"
+    class_index: 8
+    season: "annual"
+
+  - id: "potato"
+    label: "Potato"
+    label_hi: "आलू"
+    color: "#a78bfa"
+    class_index: 5
+    season: "rabi"
+
+  - id: "lentil"
+    label: "Lentil"
+    label_hi: "मसूर दाल"
+    color: "#fb923c"
+    class_index: 2
+    season: "rabi"
+
+  - id: "maize"
+    label: "Maize"
+    label_hi: "मक्का"
+    color: "#ea580c"
+    class_index: 3
+    season: "kharif"
+
+  - id: "gram"
+    label: "Gram (Chickpea)"
+    label_hi: "चना"
+    color: "#f97316"
     class_index: 1
+    season: "rabi"
 
   - id: "other"
-    label: "Other"
+    label: "Other / Unknown"
     label_hi: "अन्य"
-    color: "#b0c4de"   # Light steel blue
-    class_index: 2
+    color: "#b0c4de"
+    class_index: 10
 
-# Season information (Rabi/Kharif context)
+# Season information
 seasons:
   rabi:
     label: "Rabi (Winter)"
     months: [11, 12, 1, 2, 3, 4]   # Nov–Apr
-    primary_crops: ["wheat"]
+    primary_crops: ["wheat", "mustard", "potato", "lentil", "gram"]
   kharif:
     label: "Kharif (Monsoon)"
     months: [6, 7, 8, 9, 10]       # Jun–Oct
-    primary_crops: ["rice"]
+    primary_crops: ["rice", "soybean", "cotton", "maize", "sugarcane"]

@@ -27,6 +27,8 @@ class CropType(str, Enum):
     WHEAT = "wheat"
     RICE = "rice"
     MUSTARD = "mustard"
+    SOYBEAN = "soybean"
+    COTTON = "cotton"
     SUGARCANE = "sugarcane"
     POTATO = "potato"
     LENTIL = "lentil"
@@ -376,6 +378,8 @@ class StressAssessment(BaseModel):
     ndvi_current: Optional[float] = Field(None, ge=-1, le=1)
     ndvi_previous: Optional[float] = Field(None, ge=-1, le=1)
     confidence: Optional[float] = Field(None, ge=0, le=1)
+    vci_percentage: Optional[float] = Field(None, ge=0, le=100, description="Vegetation Condition Index percentage (0-100%)")
+    vci_stress_level: Optional[str] = Field(None, description="Healthy (>60%), Mild Stress (30-60%), Severe Stress (<30%)")
     data_source: DataSource = DataSource.DEMO
 
 
@@ -398,7 +402,15 @@ class FarmAnalysis(BaseModel):
     ndvi_current: Optional[float] = Field(None, ge=-1, le=1)
     ndvi_previous: Optional[float] = Field(None, ge=-1, le=1)
     ndvi_trend: Optional[HealthTrend] = None
+    vci_percentage: Optional[float] = Field(None, ge=0, le=100)
+    vci_stress_level: Optional[str] = None
     observation_date: Optional[date] = None
+
+    # Landcover & Cropland Masking (ESA WorldCover 10m)
+    cropland_pct: Optional[float] = Field(None, ge=0, le=100)
+    builtup_pct: Optional[float] = Field(None, ge=0, le=100)
+    is_predominantly_cropland: Optional[bool] = True
+    landcover_warning: Optional[str] = None
 
     # Weather context (Phase 7 — optional)
     weather: Optional[dict] = None

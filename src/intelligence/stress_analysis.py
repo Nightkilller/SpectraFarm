@@ -25,6 +25,7 @@ from src.data.schemas import (
     StressAssessment,
     StressLevel,
 )
+from src.geospatial.indices import classify_vci_stress, compute_vci
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,17 @@ def assess_stress(
     ndvi_current = s2_obs[-1].ndvi
     ndvi_previous = s2_obs[-2].ndvi if len(s2_obs) >= 2 else None
 
+    # Compute VCI (Vegetation Condition Index)
+    ndvi_vals = [o.ndvi for o in s2_obs if o.ndvi is not None]
+    ndvi_min_hist = min(ndvi_vals) if ndvi_vals else 0.1
+    ndvi_max_hist = max(ndvi_vals) if ndvi_vals else 0.8
+    # Ensure realistic range even with few observations
+    ndvi_min_hist = min(ndvi_min_hist, settings.ndvi_thresholds.get("bare_soil_max", 0.15))
+    ndvi_max_hist = max(ndvi_max_hist, settings.ndvi_thresholds.get("dense_vegetation_min", 0.70))
+
+    vci_pct = compute_vci(ndvi_current, ndvi_min_hist, ndvi_max_hist)
+    vci_stress = classify_vci_stress(vci_pct)
+
     # NDVI trend
     trend = _compute_trend(s2_obs, settings.ndvi_thresholds.get("trend_threshold", 0.05))
 
@@ -93,6 +105,8 @@ def assess_stress(
         ndvi_current=round(ndvi_current, 4),
         ndvi_previous=round(ndvi_previous, 4) if ndvi_previous is not None else None,
         confidence=0.0 if not is_calibrated else _estimate_confidence(len(s2_obs)),
+        vci_percentage=round(vci_pct, 1),
+        vci_stress_level=vci_stress,
         data_source=data_source,
     )
 

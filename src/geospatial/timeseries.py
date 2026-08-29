@@ -75,10 +75,14 @@ def extract_ndvi_timeseries(
             data_source=DataSource.LIVE,
         )
 
-    # Map reduction across the image collection server-side
+    # Load ESA WorldCover 10m Cropland mask (value 40 = Cropland)
+    worldcover = ee.ImageCollection("ESA/WorldCover/v200").first()
+    cropland_mask = worldcover.select("Map").eq(40)
+
+    # Map reduction across the image collection server-side (strictly over cropland pixels)
     def _compute_stats_per_image(img):
         with_ndvi = calculate_ndvi(img)
-        ndvi_band = with_ndvi.select("NDVI")
+        ndvi_band = with_ndvi.select("NDVI").updateMask(cropland_mask)
 
         reducer = (
             ee.Reducer.mean()

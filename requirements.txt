@@ -26,9 +26,9 @@ google-generativeai>=0.5
 fastapi>=0.110
 uvicorn[standard]>=0.27
 
-# Satellite (optional — needs GEE account)
-# earthengine-api>=0.1.380
-# geemap>=0.30
+# Satellite (requires GEE account — run `earthengine authenticate` first)
+earthengine-api>=0.1.380
+# geemap>=0.30  # optional, for advanced map visualization
 
 # Testing
 pytest>=7.0

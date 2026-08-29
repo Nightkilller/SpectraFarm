@@ -147,6 +147,10 @@ class Settings:
         return os.getenv("GEMINI_API_KEY") or None
 
     @property
+    def groq_api_key(self) -> str | None:
+        return os.getenv("GROQ_API_KEY") or None
+
+    @property
     def gee_project(self) -> str | None:
         return os.getenv("GEE_PROJECT") or None
 

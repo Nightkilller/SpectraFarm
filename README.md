@@ -1,94 +1,116 @@
-# AgriN — AI-Powered Smart Crop Intelligence
+# SpectraFarm — AgriN Satellite Crop Intelligence Platform
 
-> *"What is happening to my crop, and what should I consider doing about it?"*
+> Real-time crop monitoring and agronomic advisory powered by satellite remote sensing, machine learning, and AI.
 
-AgriN combines **satellite remote sensing (Sentinel-2 optical + Sentinel-1 SAR via Google Earth Engine)**, **machine learning**, and **Google Gemini AI** to deliver farmer-friendly crop intelligence.
-
----
-
-## Regional Architecture & ML Strategy
-
-AgriN decouples its live satellite demonstration pilot from its public machine learning reference regions:
-
-| Region Designation | Location | Purpose | Ground Reference Data |
-|---|---|---|---|
-| **Satellite Demonstration Pilot** | **Sehore District, Madhya Pradesh** (`23.20°N, 77.08°E`) | Live multi-sensor optical + SAR satellite feature extraction & index tracking | **0 in-situ records** (`DATA_NOT_AVAILABLE` — zero fabricated records) |
-| **Primary Public ML Benchmark** | **Uttar Pradesh, India** | Public-data machine learning experimentation & crop classification training | **AgriFieldNet Competition Dataset** (`EXTERNAL_PUBLIC_DATASET`) |
-| **Secondary Public ML Benchmark** | **Bihar, India** | Cross-region generalization testing & validation | **AgriFieldNet Competition Dataset** (`EXTERNAL_PUBLIC_DATASET`) |
+SpectraFarm (AgriN) is an end-to-end agricultural intelligence platform that combines **Sentinel-2 optical imagery**, **Sentinel-1 SAR radar data** via **Google Earth Engine**, a **Random Forest crop classifier**, and **Groq/Gemini AI** to deliver actionable crop health insights and irrigation guidance to farmers — all through a single interactive dashboard.
 
 ---
 
-## Current Status: Phase 5 Complete (Public-Data-First ML Strategy) ✅
+## What It Does
 
-- **Google Earth Engine Integration**: Operational with Google Cloud Project `agrin-506618`.
-- **Pilot Region Foundation**: **Sehore Pilot Test AOI, Madhya Pradesh, India** (`23.20°N, 77.08°E`).
-- **Sentinel-2 Optical Pipeline (Phase 1 & 2)**: Real multi-temporal NDVI trajectories (22 canonical daily observations).
-- **Sentinel-1 SAR Pipeline (Phase 3)**: Real multi-temporal Synthetic Aperture Radar backscatter (`VV`, `VH`, `VV/VH` linear ratio) from `COPERNICUS/S1_GRD` (14 canonical daily observations).
-- **Multi-Sensor Fusion (Phase 4)**: Temporally fused feature dataset combining optical greenness and radar backscatter (9 `FUSED_PAIR`, 5 `SAR_STANDALONE` observations).
-- **Ground Truth & External Ingestion Infrastructure (Phase 5)**: Cloud-ready validation pipeline with spatial bounding, duplicate coordinate detection ($<15\text{m}$ tolerance), spatial blocking, and explicit provenance tracking.
-- **Selected Public ML Dataset**: **AgriFieldNet Competition Dataset** (Radiant Earth Foundation / IDinsight, DOI: `10.34911/rdnt.wu92p1`, License: `CC-BY-4.0`, 7,081 fields across UP, Bihar, Rajasthan, Odisha).
-- **Target Cloud Data Warehouse**: Google BigQuery (`agrin-506618.agrin_db.external_agrifieldnet_labels`) and Google Cloud Storage (`gs://agrin-ground-truth-506618/external/agrifieldnet/`).
+1. **Identifies the crop** growing at any coordinate in India using a trained ML classifier on multi-temporal satellite features.
+2. **Monitors crop health** in near-real-time via NDVI (vegetation greenness), VCI (moisture stress), and SAR radar backscatter.
+3. **Detects stress** — drought, waterlogging, pest damage — by fusing optical and radar signals with agronomic thresholds.
+4. **Recommends irrigation** timing, depth, and priority based on current soil moisture and canopy condition.
+5. **Provides AI advisory** — an interactive AgriN AI Assistant (powered by Groq LPU / Google Gemini) answers agronomic questions grounded in live satellite telemetry.
 
 ---
 
-## Quick Start & Verification
+## Architecture
 
-### 1. Environment Setup
+```
+┌─────────────────────────────────────────────────────┐
+│              Streamlit Dashboard (app.py)            │
+│   Map · Telemetry · Charts · AI Assistant Chat      │
+└──────────────────────┬──────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────┐
+│          Agricultural Intelligence Layer             │
+│   Combines all data into structured FarmAnalysis     │
+└────┬──────────┬──────────┬──────────┬───────────────┘
+     │          │          │          │
+┌────▼────┐ ┌──▼────┐ ┌───▼───┐ ┌───▼──────────┐
+│Satellite│ │  ML   │ │Feature│ │   AI/LLM     │
+│ Service │ │Classif│ │Fusion │ │  Advisory    │
+└────┬────┘ └──┬────┘ └───┬───┘ └───┬──────────┘
+     │         │          │         │
+┌────▼────┐ ┌──▼─────┐ ┌─▼──┐ ┌───▼──────────┐
+│ Google  │ │scikit- │ │NumPy│ │ Groq LPU /   │
+│ Earth   │ │ learn  │ │     │ │ Google Gemini│
+│ Engine  │ │        │ │     │ │              │
+└─────────┘ └────────┘ └────┘ └──────────────┘
+```
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| **Dashboard** | Streamlit, Plotly, Folium (Leaflet.js) |
+| **Satellite Data** | Google Earth Engine (Sentinel-2 Optical + Sentinel-1 SAR) |
+| **ML Classifier** | scikit-learn Random Forest (trained on AgriFieldNet public dataset) |
+| **Feature Engineering** | NumPy, multi-temporal NDVI + SAR backscatter fusion |
+| **AI Advisory** | Groq LPU (Compound-Mini / Qwen) + Google Gemini as fallback |
+| **Data Validation** | Pydantic schemas, spatial blocking, provenance tracking |
+| **Testing** | pytest (78 automated tests) |
+| **Language** | Python 3.11+ |
+
+---
+
+## Key Features
+
+- **Live Satellite Feed** — Real Sentinel-2 and Sentinel-1 data from Google Earth Engine, with automatic fallback to synthetic demo data when GEE is unavailable.
+- **Interactive Crop Map** — Folium-based satellite map with ESA WorldCover land-use validation, 5x5 agricultural parcel grid, and Google Hybrid / Esri high-res basemaps.
+- **Multi-Sensor Fusion** — Combines optical NDVI time-series with SAR radar VV/VH backscatter for robust crop identification even under cloud cover.
+- **Stress Detection** — Vegetation Condition Index (VCI), SAR-derived soil moisture proxies, and configurable agronomic thresholds.
+- **Irrigation Guidance** — Calculates recommended irrigation depth, pump duration, and water volume based on field size and stress level.
+- **AI Copilot** — Ask questions about your crop in natural language; responses are grounded in live satellite measurements (not hallucinated).
+- **Bilingual** — English and Hindi advisory support.
+- **13 Pre-configured Regions** — Agricultural presets across UP, MP, Rajasthan, Bihar, Punjab, Maharashtra.
+
+---
+
+## Quick Start
+
+### 1. Clone & Setup
 
 ```bash
-# Clone the repository
+git clone https://github.com/YOUR_USERNAME/agriN.git
 cd agriN
 
-# Create virtual environment
 python3 -m venv venv
 source venv/bin/activate
-
-# Install dependencies
 pip install -r requirements.txt
 ```
 
 ### 2. Configure Environment
 
-Create `.env` based on `.env.example`:
+Copy `.env.example` to `.env` and fill in your keys:
+
 ```env
-GEE_PROJECT=agrin-506618
-GEMINI_API_KEY=your_key_here
+GEE_PROJECT=your-gee-project-id
+GEMINI_API_KEY=your_gemini_key
+GROQ_API_KEY=your_groq_key
 AGRIN_MODE=live
 ```
 
----
+| Variable | Required | Purpose |
+|---|---|---|
+| `GEE_PROJECT` | Yes (for live data) | Google Earth Engine cloud project ID |
+| `GEMINI_API_KEY` | Optional | Google Gemini AI fallback |
+| `GROQ_API_KEY` | Yes (for AI chat) | Groq LPU for fast AI responses |
+| `AGRIN_MODE` | Optional | `live` (default) or `demo` |
 
-## Verification Pipelines
-
-### 1. Ground Truth & External Dataset Validation (Phase 5)
-```bash
-python scripts/validate_ground_truth.py
-```
-
-### 2. Multi-Sensor Optical + SAR Fusion Pipeline (Phase 4)
-```bash
-python scripts/test_sehore_fusion.py
-```
-
-### 3. Sentinel-1 SAR Backscatter Pipeline (Phase 3)
-```bash
-python scripts/test_sehore_sentinel1.py
-```
-
-### 4. Sentinel-2 Optical Pipeline (Phase 1 & 2)
-```bash
-python scripts/test_sehore_timeseries.py
-```
-
----
-
-## Test Suite
-
-Run the full automated offline test suite (78 tests passing):
+### 3. Run
 
 ```bash
-pytest tests/ -v
+streamlit run app.py
 ```
+
+Open `http://localhost:8501` in your browser.
+
+> **Note:** If Google Earth Engine is not configured, the app automatically falls back to synthetic demo data — no setup required for a quick demo.
 
 ---
 
@@ -96,45 +118,86 @@ pytest tests/ -v
 
 ```
 agriN/
+├── app.py                          # Main Streamlit dashboard
 ├── config/
-│   ├── settings.yaml        # Sehore pilot AOI, UP/Bihar ML regions, satellite config
-│   ├── thresholds.yaml      # Guarded uncalibrated thresholds (placeholders)
-│   └── crops.yaml           # Crop classes & seasons
-├── data/
-│   ├── ground_truth/        # Ground-truth templates & documentation
-│   │   ├── README.md        # Ground truth policies & BigQuery specification
-│   │   ├── EXTERNAL_DATASETS.md  # AgriFieldNet comparison, selection & provenance
-│   │   └── ground_truth_template.csv  # Field survey ingestion header template
-│   └── processed/sehore/    # Processed satellite datasets (NDVI, SAR, Fused)
+│   ├── settings.yaml               # Pilot AOI, satellite config, ML regions
+│   ├── thresholds.yaml             # NDVI/VCI stress thresholds
+│   └── crops.yaml                  # Crop classes & growing seasons
 ├── src/
-│   ├── config/              # Central configuration loader
-│   ├── data/                # Schemas & ground-truth validation logic
-│   │   ├── schemas.py       # Pydantic models (GroundTruthRecord, FusedPair, etc.)
-│   │   └── ground_truth_validator.py  # Spatial checks, deduplication, blocking & provenance
-│   ├── geospatial/
-│   │   ├── gee_client.py    # Earth Engine initialization & collection filtering
-│   │   ├── indices.py       # Reusable optical indices (NDVI, NDWI)
-│   │   ├── timeseries.py    # Multi-temporal Sentinel-2 NDVI extraction & deduplication
-│   │   └── sar.py           # Multi-temporal Sentinel-1 SAR extraction & backscatter ratios
+│   ├── ai/
+│   │   ├── gemini_client.py        # Groq/Gemini AI client & question handler
+│   │   └── prompts.py              # System prompts for agronomic advisory
+│   ├── config/
+│   │   └── settings.py             # Central configuration loader
+│   ├── data/
+│   │   ├── schemas.py              # Pydantic models (Farm, FarmAnalysis, etc.)
+│   │   ├── satellite_data.py       # Unified satellite data acquisition layer
+│   │   ├── demo_data.py            # Synthetic demo data generator
+│   │   ├── ground_truth_validator.py  # Spatial validation & provenance
+│   │   └── load_ground_truth.py    # Ground truth ingestion pipeline
 │   ├── features/
-│   │   ├── feature_extraction.py  # Statistical feature extractors
-│   │   └── fusion.py              # Optical + SAR multi-sensor fusion & temporal vector
-│   └── ai/                  # Gemini advisory integration
-├── scripts/
-│   ├── test_sehore_sentinel2.py   # Phase 1 single-image optical test
-│   ├── test_sehore_timeseries.py  # Phase 2 multi-temporal optical test
-│   ├── test_sehore_sentinel1.py   # Phase 3 multi-temporal SAR radar test
-│   ├── test_sehore_fusion.py      # Phase 4 optical + SAR multi-sensor fusion test
-│   └── validate_ground_truth.py   # Phase 5 ground truth & external dataset test
+│   │   ├── feature_extraction.py   # Statistical feature extractors
+│   │   └── fusion.py               # Optical + SAR multi-sensor fusion
+│   ├── geospatial/
+│   │   ├── gee_client.py           # Earth Engine initialization & queries
+│   │   ├── indices.py              # Vegetation indices (NDVI, NDWI)
+│   │   ├── timeseries.py           # Multi-temporal Sentinel-2 extraction
+│   │   ├── sar.py                  # Multi-temporal Sentinel-1 SAR extraction
+│   │   └── state_boundaries.py     # India state boundary lookups
+│   ├── intelligence/
+│   │   ├── farm_analyzer.py        # Combines all data into FarmAnalysis
+│   │   └── stress_analysis.py      # Stress detection & VCI calculation
+│   └── ml/
+│       ├── crop_classifier.py      # Random Forest crop classification
+│       └── train_heavy_classifier.py  # Training pipeline (AgriFieldNet)
+├── tests/                          # 78 automated pytest tests
+├── scripts/                        # Verification & training scripts
+├── notebooks/                      # Jupyter/Colab training notebooks
 ├── docs/
-│   ├── architecture.md      # System architecture & service boundaries
-│   ├── assumptions.md       # Assumptions & operational limits
-│   └── methodology.md       # Scientific remote sensing & index formulations
-├── tests/                   # Automated pytest suite (78 tests)
-├── .env.example
-├── requirements.txt
-└── README.md
+│   ├── architecture.md             # System architecture & design
+│   ├── methodology.md              # Remote sensing methodology
+│   ├── assumptions.md              # Operational assumptions & limits
+│   └── deployment.md               # Deployment guide
+├── data/
+│   └── ground_truth/               # Ground truth templates & docs
+├── models/
+│   └── crop_classifier/            # Trained model artifacts (gitignored)
+├── .streamlit/config.toml          # Streamlit theme configuration
+├── .env.example                    # Environment variable template
+├── requirements.txt                # Python dependencies
+└── pyproject.toml                  # Project metadata & pytest config
 ```
+
+---
+
+## Running Tests
+
+```bash
+pytest tests/ -v
+```
+
+All 78 tests run offline without any API keys or GEE access.
+
+---
+
+## Data Sources
+
+| Source | Sensor | Data Used |
+|---|---|---|
+| **Copernicus Sentinel-2** | Optical (10m) | NDVI, NDWI, canopy greenness |
+| **Copernicus Sentinel-1** | SAR C-band (10m) | VV/VH backscatter, soil moisture proxy |
+| **ESA WorldCover** | Land use (10m) | Cropland validation mask |
+| **AgriFieldNet** | Ground truth | Crop labels for ML training (CC-BY-4.0) |
+
+---
+
+## ML Training Dataset
+
+The crop classifier is trained on the **AgriFieldNet Competition Dataset** by Radiant Earth Foundation / IDinsight:
+- **DOI:** `10.34911/rdnt.wu92p1`
+- **License:** CC-BY-4.0
+- **Coverage:** 7,081 labeled agricultural fields across Uttar Pradesh, Bihar, Rajasthan, and Odisha
+- **Crops:** Wheat, Rice, Maize, Cotton, Sugarcane, Soybean, Groundnut, Vegetables
 
 ---
 
